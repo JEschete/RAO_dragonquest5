@@ -3,8 +3,12 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 from functools import lru_cache
 
-from dq5_map_decode import DecodedFloor
-from dq5_rom import RomImage
+if __package__:
+    from .dq5_map_decode import DecodedFloor
+    from .dq5_rom import RomImage
+else:
+    from dq5_map_decode import DecodedFloor
+    from dq5_rom import RomImage
 
 
 CHEST_COUNTS = 0x1EEF90
@@ -96,6 +100,19 @@ def hidden_records(rom: RomImage) -> tuple[TreasureLocation, ...]:
 def story_records(rom: RomImage) -> tuple[TreasureLocation, ...]:
     return (*_flagged_records(rom, 0x1EF435, "story", 0x7E2190, 8),
             *_flagged_records(rom, 0x1EF4DF, "story", 0x7E2190, 8))
+
+
+def reward_available(reward: TreasureLocation, snapshot: bytes | None) -> bool | None:
+    if snapshot is None:
+        return None
+    if len(snapshot) != 0x20000:
+        raise ValueError("Reward availability requires complete WRAM shape")
+    if reward.kind == "hidden":
+        if reward.item_id == 0x44 and reward.area_id == 0x21:
+            return not bool(snapshot[0x21E2] & 0x10)
+        if reward.item_id == 0xB0 and reward.area_id == 0x1F:
+            return not bool(snapshot[0x21E2] & 4)
+    return True
 
 
 def _flagged_records(rom: RomImage, start: int, kind: str, flag_base: int,

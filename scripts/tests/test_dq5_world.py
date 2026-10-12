@@ -11,12 +11,18 @@ from dq5_rom import RomImage
 from dq5_world import decompress_rle, world_layout
 
 
-@pytest.fixture(scope="module")
-def owned_rom() -> RomImage:
-    path = Path(__file__).resolve().parents[2] / "Resources/2148-DragonQuest5-English/Dragon Quest V - Tenkuu no Hanayome (Japan).sfc"
-    if not path.is_file():
-        pytest.skip("The locally owned DQ5 cartridge is not available")
-    return RomImage.load(path)
+@pytest.fixture(scope="module", params=[
+    None,
+    "Dragon Quest V - Tenkuu no Hanayome (Japan) (En) (v2.01F) (DeJap).bps",
+    "Dragon Quest V - Tenkuu no Hanayome (Japan) (En) (v2.01F - Alt) (DeJap).bps",
+], ids=["japanese", "dejap", "dejap-alt"])
+def owned_rom(request: pytest.FixtureRequest) -> RomImage:
+    resources = Path(__file__).resolve().parents[2] / "Resources/2148-DragonQuest5-English"
+    path = resources / "Dragon Quest V - Tenkuu no Hanayome (Japan).sfc"
+    patch = resources / request.param if request.param is not None else None
+    if not path.is_file() or (patch is not None and not patch.is_file()):
+        pytest.skip("The locally owned DQ5 cartridge and optional patch are not available")
+    return RomImage.load(path, patch)
 
 
 def test_world_rle_literal_repeat_and_limit() -> None:

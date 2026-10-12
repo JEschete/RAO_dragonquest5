@@ -3,7 +3,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 import struct
 
-from dq5_rom import RomImage, lorom_offset
+if __package__:
+    from .dq5_rom import RomImage, lorom_offset
+else:
+    from dq5_rom import RomImage, lorom_offset
 
 
 AREA_DIRECTORY = 0x0F8ED7

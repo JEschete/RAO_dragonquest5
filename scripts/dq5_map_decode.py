@@ -4,10 +4,16 @@ from dataclasses import dataclass
 from functools import lru_cache
 import struct
 
-from dq5_map_data import MapHeader, block_directory, floor_music, select_map
-from dq5_native import NativeMachine
-from dq5_rom import RomImage
-from dq5_world import WorldLayout, world_layout
+if __package__:
+    from .dq5_map_data import MapHeader, block_directory, floor_music, select_map
+    from .dq5_native import NativeMachine
+    from .dq5_rom import RomImage
+    from .dq5_world import WorldLayout, world_layout
+else:
+    from dq5_map_data import MapHeader, block_directory, floor_music, select_map
+    from dq5_native import NativeMachine
+    from dq5_rom import RomImage
+    from dq5_world import WorldLayout, world_layout
 
 
 @dataclass(frozen=True, slots=True)
@@ -100,6 +106,9 @@ def decode_floor(
         (0x01AB7B, True),
         (0x03D3E9, True),
         (0x01A799, False),
+        (0x01B7AC, False),
+        (0x01B8FE, False),
+        (0x01B9EA, False),
     ):
         machine.call(address, long_return=long_return)
     if (machine.bus[0xBF], machine.bus[0xC0]) != (header.width, header.height):

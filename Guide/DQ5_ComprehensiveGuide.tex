@@ -1,9 +1,11 @@
 \documentclass[11pt,letterpaper,oneside]{scrreprt}
 
-\usepackage[margin=1in]{geometry}
+\usepackage{xcolor}
+\usepackage[margin=0.85in,headheight=30pt,headsep=12pt]{geometry}
 \usepackage{iftex}
 \ifPDFTeX
   \usepackage[T1]{fontenc}
+  \usepackage{lmodern}
 \else
   \usepackage{fontspec}
   \IfFontExistsTF{Cambria}
@@ -13,7 +15,94 @@
     {\setsansfont{Calibri}}
     {\setsansfont{Latin Modern Sans}}
 \fi
+\usepackage{booktabs,array,longtable}
+\usepackage{microtype}
+\usepackage[breakable,skins]{tcolorbox}
+\usepackage[automark]{scrlayer-scrpage}
 \usepackage[unicode,bookmarks=false,linktoc=none]{hyperref}
+
+\definecolor{GuideGreen}{HTML}{244D3E}
+\definecolor{GuideGold}{HTML}{95722D}
+\definecolor{GuideRed}{HTML}{803E42}
+\definecolor{GuideBlue}{HTML}{2C5870}
+\KOMAoptions{parskip=half,headings=small,headsepline=0.4pt}
+\setkomafont{disposition}{\sffamily\bfseries\color{GuideGreen}}
+\setkomafont{chapter}{\sffamily\bfseries\color{GuideGreen}\fontsize{24}{28}\selectfont}
+\setkomafont{section}{\sffamily\bfseries\color{GuideGreen}\large}
+\setkomafont{subsection}{\sffamily\bfseries\color{GuideRed}\normalsize}
+\RedeclareSectionCommand[beforeskip=10pt,afterskip=18pt]{chapter}
+\RedeclareSectionCommand[beforeskip=16pt,afterskip=7pt]{section}
+\RedeclareSectionCommand[beforeskip=12pt,afterskip=5pt]{subsection}
+\setkomafont{partentry}{\sffamily\bfseries\color{GuideGreen}}
+\setkomafont{chapterentry}{\sffamily\bfseries\color{GuideGreen}}
+\clearpairofpagestyles
+\automark[chapter]{chapter}
+\ihead{\parbox[b]{0.83\textwidth}{\raggedright\sffamily\footnotesize\headmark}}
+\ohead{\sffamily\scriptsize DQ V}
+\ifoot{\sffamily\scriptsize Dragon Quest V}
+\ofoot[\pagemark]{\pagemark}
+\setkomafont{pageheadfoot}{\normalfont\sffamily\footnotesize}
+\raggedbottom
+\setlength{\emergencystretch}{2em}
+\newcommand{\GuideTableHeading}[1]{\textcolor{GuideGreen}{\textbf{#1}}}
+\newcolumntype{P}[1]{>{\raggedright\arraybackslash}p{#1}}
+\newenvironment{guidetable}[1][]{%
+  \begingroup
+  \par
+  \setlength{\parfillskip}{0pt plus 1fil}%
+  \noindent\begin{minipage}{\linewidth}%
+  \if\relax\detokenize{#1}\relax\else
+    \textbf{#1}\par\nobreak
+  \fi
+  \small
+  \setlength{\parskip}{0pt}%
+  \setlength{\parindent}{0pt}%
+  \setlength{\tabcolsep}{6pt}%
+  \renewcommand{\arraystretch}{1.16}%
+}{\end{minipage}\par\endgroup}
+\newenvironment{reftable}[1]{%
+  \par\begingroup\small
+  \setlength{\parskip}{0pt}%
+  \setlength{\parindent}{0pt}%
+  \setlength{\parfillskip}{0pt plus 1fil}%
+  \setlength{\tabcolsep}{4pt}%
+  \renewcommand{\arraystretch}{1.12}%
+  \setlength{\LTleft}{0pt}%
+  \setlength{\LTright}{0pt plus 1fil}%
+  \setlength{\LTpre}{4pt}%
+  \setlength{\LTpost}{8pt}%
+  \begin{longtable}{@{}#1@{}}%
+}{\end{longtable}\endgroup}
+\newtcolorbox{routecheck}[2][]{enhanced,breakable,
+  colback=GuideBlue!4!white,colframe=GuideBlue,
+  boxrule=0.4pt,leftrule=2pt,arc=1pt,
+  left=8pt,right=8pt,top=6pt,bottom=6pt,
+  before skip=10pt,after skip=10pt,
+  title={#2},fonttitle=\sffamily\bfseries,#1}
+\newtcolorbox{achievementalert}[1]{enhanced,
+  colback=GuideGreen!4!white,colframe=GuideGreen,
+  boxrule=0.4pt,leftrule=2pt,arc=1pt,
+  left=8pt,right=8pt,top=6pt,bottom=6pt,
+  before skip=10pt,after skip=10pt,
+  title={#1},fonttitle=\sffamily\bfseries}
+\newtcolorbox{achievementsetup}[1]{enhanced,breakable,
+  colback=GuideGold!6!white,colframe=GuideGold,
+  boxrule=0.4pt,leftrule=2pt,arc=1pt,
+  left=8pt,right=8pt,top=6pt,bottom=6pt,
+  before skip=10pt,after skip=10pt,
+  title={#1},fonttitle=\sffamily\bfseries}
+\newcommand{\Achievement}[5]{%
+  \begin{achievementalert}{Achievement Alert: #2 (#3 points)}
+  \phantomsection\label{achievement-#1}%
+  {\small\sffamily RA #1}\par
+  \textbf{Requirement:} #4\par
+  #5
+  \end{achievementalert}}
+\newcommand{\AchievementSetup}[3]{%
+  \begin{achievementsetup}{Achievement Setup: #2}
+  {\small\sffamily RA #1}\par
+  #3
+  \end{achievementsetup}}
 
 \hypersetup{
   pdftitle={Dragon Quest V: Comprehensive Guide},
@@ -52,23 +141,24 @@
 }
 
 \begin{document}
-\pagestyle{plain}
+\pagestyle{scrheadings}
 \begin{titlepage}
-\centering
-\vspace*{1cm}
-{\sffamily\bfseries\Huge Dragon Quest V\par}
-\bigskip
-{\sffamily\Large Comprehensive Guide\par}
-\bigskip
+\thispagestyle{empty}
+\sffamily
+\setlength{\parfillskip}{0pt plus 1fil}
+\noindent{\small\color{GuideGreen}SUPER FAMICOM / SNES\par}
+\vspace*{0.9in}
+\noindent\textcolor{GuideGreen}{\rule{\textwidth}{1.6pt}}\par
+\vspace{0.25in}
+{\fontsize{35}{41}\selectfont\bfseries\color{GuideGreen}Dragon Quest V\par}
+\vspace{0.15in}
+{\fontsize{23}{29}\selectfont Comprehensive Guide\par}
+\vspace{0.35in}
 {\large Tenkuu no Hanayome\par}
-{\large Super Famicom / SNES\par}
 \vfill
-\begin{minipage}{\textwidth}
-\emph{Dragon Quest V: Tenkuu no Hanayome}\par
-Enix, 1992\par
-Super Famicom / SNES
-\end{minipage}
-\vfill
+\noindent\textcolor{GuideGold}{\rule{\textwidth}{0.8pt}}\par
+\vspace{0.12in}
+{\footnotesize Enix, 1992\par}
 \end{titlepage}
 
 \PlanPart{Foundations and Game Systems}
@@ -545,1378 +635,33 @@ Super Famicom / SNES
 \renewcommand{\addcontentsline}[3]{}
 \renewcommand{\theHchapter}{written.\arabic{chapter}}
 \setcounter{chapter}{0}
-\chapter{Game Version, Names, and Guide Conventions}
-\label{written-conventions}
-
-\emph{Dragon Quest V} begins aboard a ship, with a young boy travelling
-alongside his father, Papas. The first visits to Santa Rosa and Alcapa
-establish a comfortable rhythm of talking to townspeople, searching houses,
-buying equipment, and venturing into the countryside. As the journey grows,
-the party gains new companions and new ways to travel. Familiar places
-remain part of the adventure, and return visits give them fresh significance.
-
-The game rewards attention to small details. A drawer can hold a useful
-healing item. A conversation can point toward the next destination. A new
-key can make several earlier stops worth revisiting. Keeping track of these
-connections makes exploration satisfying and helps the party arrive ready
-for the next challenge.
-
-\section{Game Version}
-
-\emph{Dragon Quest V: Tenkuu no Hanayome} is Enix's 1992 role-playing game
-for the Super Famicom / SNES.
-
-The subtitle is commonly rendered as \emph{The Bride of the Sky} or
-\emph{Bride of Heaven}. The names \emph{Dragon Quest V}, \emph{Dragon
-Quest 5}, and \emph{DQ5} identify the same game.
-
-Exploration, party development, and monster recruitment are central to the
-adventure. Several features shape the journey:
-\begin{itemize}
-  \item The normal active battle party has three members. Choosing their
-    roles and equipment is an important part of preparing for a dungeon.
-  \item The wagon carries additional companions. Access to those companions
-    depends on the location and the party's current circumstances.
-  \item Each recruitable monster species has its own growth, abilities,
-    equipment options, and maximum level.
-  \item Keys and vehicles expand the accessible world throughout the game.
-    A new travel ability can make an earlier destination worth another visit.
-\end{itemize}
-
-\section{Names}
-
-\subsection*{One place, several names}
-
-Alcapa, Alkapa, and Arukapa identify the same town. Lenoire and Linoire
-are alternate spellings of the same castle. Common place names include
-the following:
-
-\begin{center}
-\begin{tabular}{@{}p{0.28\textwidth}p{0.64\textwidth}@{}}
-\textbf{Primary name} & \textbf{Alternate names} \\
-\hline
-Santa Rosa & Santa Rose, Santorez \\
-Alcapa & Alkapa, Arukapa \\
-Lenoire Castle & Linoire Castle, Lenule, Linule \\
-Oracleberry & Oracle Valley \\
-Salabona & Sarabona \\
-Granvania & Granbania, Glanvania \\
-El Heven & Elheaven \\
-Torokko Mines & Trolley Cave \\
-\end{tabular}
-\end{center}
-
-Surroundings provide another useful way to identify a place. Its position
-relative to a port, mountain pass, river, or nearby town helps confirm the
-match. Dungeon landmarks, floor connections, and the current objective
-provide similar clues when a place has an unfamiliar name.
-
-\subsection*{People and companion names}
-
-The \emph{Hero} is the player-named protagonist who travels with Papas at
-the beginning of the adventure.
-
-Monster companions have both a species and an individual name. A Slime
-Knight's species determines its growth, spells, and equipment options.
-Individual companions can have their own nicknames, and the roster may
-contain more than one member of a species.
-
-A character's appearance, location, and abilities help establish its
-identity. These details are useful when several enemy or companion names
-resemble one another.
-
-\subsection*{Spells and equipment}
-
-\emph{Blaze}, \emph{Firebal}, and \emph{Bang} belong to separate spell
-families. MP cost, target pattern, and effect help identify a spell and
-its role in battle.
-
-Weapons and armor have individual names, power values, eligible users,
-and special properties. Certain rings and staves also have item-use
-effects alongside their equipment properties.
-
-\chapter{Controls, Exploration, and Progression}
-\label{written-exploration}
-
-A visit to town gives the party a chance to recover, hear local news, and
-prepare for the next trip. Out in the countryside, the same small decisions
-continue to matter. Healing before a difficult stretch, keeping useful
-items with the right companion, and remembering a convenient resting place
-can make a long journey considerably more comfortable.
-
-\section{Controller inputs, field commands, and menu navigation}
-
-\subsection*{Moving and choosing an action}
-
-Use the directional pad to walk and to move the cursor through menus.
-Approach a person or object and face it before choosing an interaction.
-A staircase, entrance, or passage generally connects to the next area when
-the party walks onto the appropriate square.
-
-Press \textbf{A} to open the field command menu. Choose a command with the
-directional pad and confirm it with A. In menus, \textbf{B} cancels the
-current selection or closes the current window. Some actions lead through
-several choices, such as selecting a companion, an item, and its recipient.
-Read the current prompt before confirming the next choice.
-
-\subsection*{The field commands}
-
-\begin{description}
-  \item[Talk:] Speak to the person the leading character is facing. Shop
-    counters and service desks are approached in the same way.
-  \item[Spell:] Choose a companion and one of that companion's field spells.
-    Healing, status recovery, and travel spells appear as they become
-    available. Select the recipient when the spell requests a target.
-  \item[Status:] Inspect a companion's level, attributes, HP, MP, equipment,
-    and other personal information. Use this screen when comparing an
-    upgrade or checking the party's condition before leaving town.
-  \item[Item:] Choose an owner and an object from that owner's inventory.
-    The available actions include using, transferring, and discarding
-    ordinary items. An item's available actions depend on the object.
-  \item[Equip:] Select a companion and assign suitable weapons, armor,
-    shields, and headgear. Check the resulting attack and defense values
-    after making a change.
-  \item[Tactics:] Manage party-related commands and battle behavior.
-    Party arrangement determines the companions travelling at the front.
-  \item[Door:] Open the door directly ahead when the party has the required
-    access. Approach the door square and face it before using the command.
-  \item[Search:] Examine the current position or the object directly ahead.
-    This command is useful for chests, drawers, pots, and specific places
-    on the ground.
-\end{description}
-
-A character-selection window identifies the companion whose spell,
-equipment, or inventory is being used. Confirm the owner carefully when
-several companions carry similar objects. Giving a Medical Herb to a
-front-line companion places that herb among the items that companion can
-use during a battle.
-
-\subsection*{Working through menus}
-
-Shops, inns, churches, and storage counters lead through a short sequence
-of questions. Select the service, choose the companion or object involved,
-and review the price or destination before accepting. A purchase may also
-ask which companion should receive the item.
-
-When the party has accumulated several spells or items, move through the
-list to inspect the available choices. Returning to the previous window
-lets you choose another owner or action. This is useful when distributing
-new equipment or preparing several companions for a dungeon.
-
-The opening data menu handles starting an adventure and managing its save
-slots. Copying creates another copy of the selected adventure record.
-Deleting removes the chosen record. Check the displayed slot and character
-name carefully before confirming either operation.
-
-\section{Data and status screens: attributes, experience, and equipment}
-
-\subsection*{Checking a companion}
-
-The Status command gives a compact view of a companion's development and
-current condition. Begin with the name and level, then check HP and MP.
-Their current values show the resources available for the next trip, and
-their maximum values show the companion's capacity when fully recovered.
-
-A character with ample maximum MP can still be nearly exhausted after a
-long dungeon. Check the current value before relying on another healing
-spell or planning a magical escape. The same habit helps identify a
-companion who needs treatment before the next battle.
-
-Experience records progress toward the next level. Level gains can improve
-attributes and add spells or abilities. Check the Spell menu after a useful
-level gain to see which new field abilities are available. A priest's
-experience advice gives the amount still needed for the next level.
-
-\subsection*{Attributes and equipment}
-
-Strength, agility, base defense, intelligence, and luck describe the
-companion's current development. Strength contributes to physical attack
-power. Agility influences the order of actions in battle. Base defense
-contributes to protection from physical attacks. Intelligence affects a
-monster companion's command obedience.
-
-Attack and defense show the current results of character development and
-equipment. When considering a purchase, inspect the intended user's
-existing weapon or armor first. After equipping the replacement, check
-the new total and decide where the old piece will be most useful.
-
-Special equipment properties deserve a separate look. Protection from
-certain attacks or status effects can be valuable in the next dungeon.
-Some weapons have unusual attack patterns, and some objects provide a
-spell-like effect when used as an item. Choose equipment with the area's
-enemies and the companion's role in mind.
-
-\subsection*{Growth and the active party}
-
-Monster species have individual level caps. A companion approaching its
-cap may already have most of its available abilities. Consider its healing,
-support, equipment, and durability when deciding how long to keep it in
-the active party.
-
-After a recruitment or party change, inspect the new companion's status,
-spells, and equipment. Supply suitable gear and place useful consumables
-in its inventory. This makes the new member ready to contribute on the
-next journey.
-
-The opening data menu also provides message-speed and sound settings.
-Choose a comfortable text speed so that shop prices, service prompts,
-and conversations remain easy to follow.
-
-\section{Dialogue, searching, drawers, pots, chests, and hidden objects}
-
-\subsection*{Talking through a town}
-
-Speak to residents as you explore. Their conversations introduce nearby
-places, local problems, unusual visitors, and changes in the town. A
-shopkeeper may offer a useful destination, while another resident explains
-why a building or route matters.
-
-Conversations can change after an event or at another time of day. Return
-to the people involved in the current objective after completing its
-immediate task. The next instruction, reward, or permission to proceed
-often comes through that follow-up conversation.
-
-Face the person before using Talk. Across a counter, face the clerk from
-the customer side. When a person has moved to another room or a building
-has closed, check the time of day and look around the surrounding area.
-
-\subsection*{Searching houses and shops}
-
-Drawers, pots, barrels, and chests can hold useful objects. Approach and
-face the container, then use Search. Check accessible rooms above or
-behind shops as well as the obvious ground-floor rooms. A small find can
-save a purchase or supply an item for the next trip.
-
-The opening ship offers an immediate example. Search the drawer in the
-cabin for a Medical Herb. In Santa Rosa, household searches provide early
-supplies and equipment. These discoveries make it worth examining a new
-room before leaving it.
-
-Keep some inventory space available while exploring. Transfer spare
-objects between companions or deposit them before a long treasure run.
-A party carrying a full assortment of old equipment can run short of
-space just as a useful new object is found.
-
-\subsection*{Ground searches and unusual containers}
-
-Some objects lie on a particular square of ground. Stand on the indicated
-square and use Search. Details such as a flower patch, grave, well,
-bucket, or conspicuous corner can help identify the correct position.
-NPC dialogue may point toward the search area.
-
-During a return visit, check rooms that have become accessible through
-a new key or event. A newly opened cellar or side room may contain several
-objects close together. Finish the searches in that room before returning
-to the main route.
-
-Some containers begin a fixed encounter. Keep the party reasonably healed
-while opening unfamiliar containers in a dungeon, and have a recovery
-item ready in an active companion's inventory.
-
-\section{Day and night: access, shops, events, and changing time}
-
-\subsection*{A town at two different times}
-
-Day and night affect the daily life of towns. Residents move, businesses
-open or close, and certain people offer their services at a particular
-time. The change in lighting also makes it easy to recognize which part
-of the day the party has reached.
-
-Oracleberry provides a useful early example. Its special merchant conducts
-business at night, and the fortune teller also has a nighttime routine.
-Visit the town during both periods to see the available services and
-conversations.
-
-When a person is absent or a counter is closed, check nearby rooms and
-consider another time of day. A resident may explain the schedule. Some
-story events have their own timing and require a conversation or action
-before the party can continue.
-
-\subsection*{Letting time pass}
-
-Travel around the countryside until the lighting changes, then enter
-the town at the desired time. Choose a manageable area near the entrance
-when waiting for night. Encounters during the walk give the party a chance
-to earn experience and gold, so keep healing supplies available.
-
-An ordinary stay at an inn restores the party and brings the day around
-to morning. A story-directed stay may include an event. Once the party
-is free to move again, check the surroundings and continue the current
-objective.
-
-\subsection*{Changing the time directly}
-
-The Day-Night spell costs 3 MP and switches between day and night when
-used in an appropriate field location. Select a companion who knows it
-through the Spell command. This becomes convenient when returning to a
-shop or searching for a person with a particular schedule.
-
-The Lamp of Darkness changes day into night. Use it through the owner's
-Item menu when that effect is needed. Enter or revisit the town afterward
-to reach the nighttime activity.
-
-\section{Doors, keys, moving obstacles, floor hazards, and puzzles}
-
-\subsection*{Opening a route}
-
-Approach a closed door and face it, then use Door. Locked doors require
-the relevant key or learned unlocking ability. Keep important access
-items available to the travelling party.
-
-The Thieves' Key knowledge opens the ordinary locks associated with that
-ability. The Reinhart Key is used for the castle's relevant locks. The
-Magic Key opens its red-framed doors, and the Final Key provides access
-to prison cells and other remaining key-locked doors.
-
-A new key can make several older destinations worth revisiting. Complete
-the newly accessible searches in one town before moving on to the next.
-An entrance controlled by a story event or a mechanism requires that
-particular action as well.
-
-\subsection*{Rocks, switches, and connected passages}
-
-Some movable obstacles can be pushed by walking into them from a suitable
-side. Check the clear space around the object before moving it. A passage
-can depend on where an obstacle ends up, so pay attention to nearby walls,
-doors, and floor connections.
-
-Inspect visible switches, levers, and unusual structures. Look for the
-gate, track, staircase, or passage affected by the mechanism. After an
-action, examine the changed area before moving farther away.
-
-In dungeons with holes, sliding floors, or one-way connections, keep track
-of the stairs and entrances that reconnect the rooms. A fall can lead to
-a different section of the same dungeon. Locate the return path before
-spending too many healing resources exploring its branches.
-
-\subsection*{Crossing damaging terrain}
-
-Hazardous floors can reduce HP while the party moves. Check the party's
-condition after crossing them, especially when a battle may begin nearby.
-Poison can also drain HP during travel and deserves prompt treatment.
-
-Stepguard costs 2 MP and protects the party from damaging floor tiles.
-Cast it before crossing an appropriate hazard. Check the party's condition
-as the route moves into another area, and renew the protection when needed.
-
-If the caster is short of MP, choose a route with fewer hazardous steps
-and heal after the crossing. Keeping the party healthy before opening a
-door or entering a new room gives more room to handle an unexpected battle.
-
-\section{Inventory ownership, item transfer, capacity, and equipment use}
-
-\subsection*{The twelve-item inventory}
-
-Each companion has twelve inventory slots. Equipment occupies those
-slots along with consumables, spare gear, and other carried objects.
-Separate copies of a consumable occupy separate slots.
-
-Leave room for discoveries before entering a treasure-rich area. Deposit
-unused possessions, sell ordinary spare gear when it is safe to do so,
-and share the carrying load among available companions. Keep the active
-party's recovery supplies convenient to reach.
-
-Item ownership matters in battle. A companion uses objects from its own
-inventory during its turn. Give healing or status-recovery items to active
-members who can use them when needed. A companion with a useful reusable
-item should also be available for the encounter where it will be used.
-
-\subsection*{Transferring and equipping}
-
-Open Item, select the current owner, choose the object, and select the
-transfer action. Choose the recipient and confirm the transfer. Check
-the recipient's remaining space when moving several objects at once.
-
-Use Equip to assign a suitable weapon, armor piece, shield, or headgear.
-After a change, inspect the companion's attack and defense values. The
-old equipment remains a possession until it is transferred, sold, stored,
-or otherwise removed.
-
-An older weapon or armor piece may suit another companion. Check the
-recipient's equipment options before selling it. When moving equipped
-gear, review both companions' equipment afterward so that each has the
-intended loadout.
-
-\subsection*{Using objects and conserving valuables}
-
-Select Use from the object's available item actions. The game may ask
-for a recipient or apply the effect to the field. Medical Herbs provide
-healing, Antidotes treat poison, and Full Moon Herbs treat paralysis.
-Their availability can help preserve a healer's MP during a long trip.
-
-Certain weapons and other objects produce a spell-like effect when used.
-Their useful action may be available alongside their equipment function.
-Inspect the object's effect and give it to a companion who can make good
-use of it.
-
-Keep important keys, event objects, and unique possessions safe. Store
-objects that are temporarily unnecessary when the depository accepts
-them. Resolve cursed equipment through the appropriate church service
-before trying to change an affected loadout.
-
-\section{Inns, churches, saving, revival, and status recovery}
-
-\subsection*{Resting before the next journey}
-
-An inn restores the living party's HP and MP. Speak to the innkeeper,
-review the cost, and accept the stay. Free resting opportunities are
-particularly useful during early training or while gathering enough gold
-for an equipment upgrade.
-
-Check the party's condition after resting. Treat persistent ailments and
-revive fallen companions before setting out. A fully supplied healer and
-healthy front line make the next journey much more comfortable.
-
-\subsection*{Church services}
-
-Speak to the priest and select the service needed:
-\begin{description}
-  \item[Record Adventure:] Save the current adventure. Confirm the chosen
-    record and wait for the priest to finish the saving dialogue.
-  \item[Experience advice:] Learn how much experience a companion needs
-    to reach the next level.
-  \item[Revival:] Restore a fallen companion to life. Select the companion
-    and review the required payment.
-  \item[Poison treatment:] Remove poison from the selected companion.
-  \item[Curse removal:] Resolve a curse affecting a companion or its
-    equipment through the priest's service.
-\end{description}
-
-Save after an important acquisition, a difficult dungeon, or a substantial
-party change. Before a longer expedition, visit the inn and church so
-that the saved record reflects the prepared party.
-
-\subsection*{Recovery away from town}
-
-Healing spells and consumables let the party recover between battles.
-Antidote costs 2 MP and treats poison. Numboff costs 2 MP and treats
-paralysis. Carrying Antidotes and Full Moon Herbs gives additional options
-when the appropriate caster is unavailable or short of MP.
-
-Vivify costs 10 MP and attempts to revive a fallen ally. A failed attempt
-requires another cast, so allow enough MP when relying on it. Revive costs
-20 MP and restores a fallen ally with full HP. A Leaf of the World Tree
-also provides revival and is a valuable emergency possession.
-
-After a revival, check HP, MP, and remaining supplies. A recovery spell
-can make it possible to finish a short route or reach the exit. A return
-to town provides a comfortable chance to rest, replenish items, and save.
-
-\subsection*{Recovering from defeat}
-
-When the party is defeated, half of the gold being carried is lost.
-Banked gold remains protected. Check the party's condition after returning
-to the recovery point, then arrange revival, treatment, and rest.
-
-Revisit the equipment and supply plan before trying the area again.
-A protective item, a different active companion, or an extra recovery
-object may give the party the help it needs on the next attempt.
-
-\section{Banks, gold storage, shopping, and selling}
-
-\subsection*{Depositing gold and possessions}
-
-The depository offers storage for gold and items. Oracleberry has one
-near Monster Gramps. Gold deposits are made in increments of 1,000 G.
-Keep enough spending money for the next inn stay, treatment, and planned
-purchases, then deposit the amount that can be set aside.
-
-Stored gold is protected from the loss caused by defeat. Withdraw it when
-an equipment purchase or recovery expense is due. Keeping a reserve in
-the bank makes rebuilding a defeated party easier.
-
-The item-storage service is useful for spare equipment and possessions
-that are being kept for later. Select the owner and object when depositing,
-then use the withdrawal service when the object is needed again. Leave
-space with the intended recipient before collecting several stored items.
-
-When a monster is left with Monster Gramps, its carried equipment and
-items are transferred to the depository. Retrieve the needed possessions
-and equip the companion again when bringing it back into the travelling
-party.
-
-\subsection*{Making a purchase}
-
-Speak to the shopkeeper, choose the item, and review its price and the
-intended recipient. Consider which active companion gains the most from
-the upgrade. A dependable weapon for a frequent attacker or protective
-gear for a vulnerable member can have an immediate effect on the next trip.
-
-After buying equipment, assign it through Equip and check the resulting
-status values. Transfer useful older gear to another eligible companion.
-Keep enough cash for recovery and essential consumables after the purchase.
-
-Oracleberry's nighttime merchant sells the wagon for 300 G. Having the
-required cash ready makes that visit convenient. Purchases tied to travel
-or party access are worth accounting for alongside ordinary equipment.
-
-\subsection*{Selling and keeping useful objects}
-
-The selling service quotes a value before the transaction is completed.
-Review the object and its owner carefully. Ordinary gear that has been
-replaced throughout the party can provide money and free inventory space.
-
-Keep unique objects, useful reusable items, and equipment intended for a
-companion who will be trained later. The depository provides space for
-possessions that are worth retaining. Store them together with a clear
-idea of which companion or journey they will support.
-
-\section{Travel progression: walking, wagon, ship, carpet, castle, and dragon}
-
-\subsection*{Walking and the wagon}
-
-On foot, follow paths through the countryside and look for the entrances
-to towns, caves, towers, and other destinations. Mountains and other
-obstacles define the available routes. Encounters along the way consume
-healing supplies and MP, so consider the journey to the entrance when
-preparing for a dungeon.
-
-The wagon follows the party during appropriate field travel and provides
-room for additional companions. Arrange the active members and distribute
-their equipment before entering an area with restricted wagon access.
-Keep the supplies needed inside that area with the companions who will
-be available there.
-
-\subsection*{Sailing}
-
-The ship opens sea routes between continents and islands. Board at its
-docking point and sail toward the desired coast. Choose an accessible
-landing place near the destination, then continue on foot.
-
-Sea travel has its own encounters. Maintain enough healing for the voyage
-and the exploration after landing. A nearby town or inn can provide a
-convenient starting point for a longer island trip.
-
-Remember the landing point before entering a dungeon or making a detour.
-The coastline and nearby landmarks help locate the ship again when the
-party is ready to continue.
-
-\subsection*{Using the Magic Carpet}
-
-Use the Magic Carpet from its owner's inventory on suitable open ground.
-It carries the party across plains and water, making several routes more
-direct. Forests and mountains constrain its movement.
-
-Choose a clear approach to the destination and a suitable place to land.
-After dismounting, walk into the town or dungeon. While travelling by
-carpet, X opens the world map and helps identify nearby land and routes.
-
-\subsection*{The flying castle}
-
-Once Zenithia is available for travel, its movement opens another way to
-cross the world. Use the directional pad while controlling the castle.
-Press X to view the world map and check the destination before choosing
-the approach.
-
-The castle's interior also provides a place to regroup during that part
-of the adventure. Keep the party ready for the destination reached after
-leaving it, especially when continuing directly into a dungeon.
-
-\subsection*{Dragon travel}
-
-The Zenithian Bells summon the flying ride when they are available.
-Use the item outdoors and choose the desired route through the world.
-This form of flight provides access across terrain such as forests and
-mountains.
-
-Choose a suitable landing point near the destination, then dismount and
-continue on foot. Check the active party and healing supplies before
-entering the next area. A fast flight can place the party close to a
-demanding dungeon with little travel in between.
-
-\section{Return destinations, Outside, maps, and safe backtracking}
-
-\subsection*{Return and Outside}
-
-Return costs 8 MP and transports the party to an available destination
-in its list. Towns and other eligible stops become available through the
-journey. Select the desired destination from the Spell command while
-standing in a suitable outdoor location.
-
-Outside costs 8 MP and takes the party out of a dungeon that allows
-magical escape. It is useful after collecting treasure or when healing
-resources are running low. Once outside, the party can choose the next
-overland route or use Return.
-
-If the same companion will cast both spells, keep at least 16 MP available
-for that trip home. Allow additional MP for any healing still needed before
-reaching the exit. The remaining value on the Status screen is useful
-when deciding whether to explore another branch.
-
-\subsection*{Other travel aids}
-
-A Wing of Wyvern provides an item-based journey back to the last town
-visited. Carry one with an available companion and use it from a suitable
-outdoor position when that destination is useful.
-
-Repel costs 4 MP and helps avoid random battles with weak enemies. Holy
-Water also helps ward off weak encounters. These aids can make a familiar
-journey more convenient as the party grows stronger.
-
-Use the Wayfarer's Map to examine the overworld when the item is available.
-Compare the party's position with the coast, rivers, mountains, and nearby
-settlements. The map is particularly useful when a new vehicle opens a
-route across water or around a large obstacle.
-
-\subsection*{Returning for earlier discoveries}
-
-A new key or travel ability can open several useful return visits. Choose
-one town or region, collect its newly accessible treasure, and then move
-to the next nearby stop. Visit shops that have become useful to the
-current party and retrieve any stored equipment needed for the trip.
-
-Keep a short mental route through the area: the landing or Return point,
-the rooms to search, the services to use, and the way back to the vehicle
-or next destination. This makes a return visit comfortable even when the
-town was last explored much earlier in the adventure.
-
-Finish a longer outing by treating ailments, restoring HP and MP,
-reorganizing useful possessions, and recording the adventure at a church.
-The party is then ready to begin its next journey from a convenient stop.
-
-\chapter{Combat, Tactics, and Party Management}
-\label{written-combat}
-
-Three active companions give every action a noticeable place in a battle.
-A timely heal can keep an attacker on its feet, a group spell can clear a
-dangerous cluster, and a defensive action can buy the party the round it
-needs to recover. The available companions and their equipment give the
-player several ways to handle the same encounter.
-
-Watch the enemy groups, the party's condition, and the resources needed
-for the rest of the journey. A comfortable victory leaves enough HP, MP,
-and useful items to continue exploring. Against a stronger opponent, the
-same habits help the party settle into a sustainable sequence of attacks,
-support, and recovery.
-
-\section{Battle commands, target groups, turn order, and escape}
-
-\subsection*{The opening battle menu}
-
-The first battle menu offers four main actions:
-\begin{description}
-  \item[Fight:] Begin choosing the party's actions for the round. The
-    current tactics determine which companions receive direct orders.
-  \item[Change:] Adjust the active members when reserve companions and
-    the encounter's conditions allow it.
-  \item[Tactics:] Choose the battle behavior of computer-controlled
-    companions or use the direct-command setting.
-  \item[Run:] Attempt to leave an encounter that permits escape.
-\end{description}
-
-For a companion receiving direct orders, the available commands include
-Attack, Spell, Parry, and Item. Attack uses the equipped weapon. Spell
-opens the companion's battle abilities. Parry is the defensive action,
-reducing incoming damage during that turn. Item opens the objects carried
-by that companion.
-
-Select the action and its target, then continue through the other directly
-controlled members. Check the party's HP while choosing the round. A
-companion who is already badly injured may need healing or a defensive
-action before taking another heavy hit.
-
-\subsection*{Reading the enemy groups}
-
-The enemy display identifies the species present and the number remaining
-in each group. The target menu uses those entries when selecting an
-offensive action. A single-target attack affects one creature in the
-chosen group, a group attack affects that group, and an all-enemy action
-reaches across the opposing formation.
-
-Choose targets according to their immediate threat. An enemy that heals,
-calls reinforcements, drains MP, or inflicts a disabling condition can be
-worth removing early. Concentrating several attacks on its group helps
-reduce the number of dangerous actions the party faces in later rounds.
-
-Group attacks are useful when several creatures of the same kind are
-present. An all-enemy attack becomes useful when the opposing formation
-contains several groups. Check which enemies remain as each new round
-begins and choose the next targets accordingly.
-
-\subsection*{Action order and recovery timing}
-
-Agility influences when companions and enemies act. The order can vary
-between rounds, so allow for an enemy reaching an injured ally before the
-planned heal. A fast companion carrying a Medical Herb can provide another
-recovery option when the main healer is slower or needs a different action.
-
-At the start of a difficult round, identify the most urgent job. This may
-be restoring a vulnerable ally, curing a disabling condition, reducing
-incoming damage, or finishing a dangerous enemy. Assign the remaining
-members around that action.
-
-Parry gives a threatened companion a defensive turn while another member
-handles recovery. After the party is healthy enough to resume its attack,
-return that companion to its usual role. Keep enough recovery available
-to handle the next unfavorable sequence of enemy actions.
-
-\subsection*{Choosing to escape}
-
-Run is useful when an encounter threatens the party's remaining supplies
-or the journey has already become too expensive in HP and MP. A successful
-escape lets the party continue from the field.
-
-A failed attempt gives the enemies an opportunity to act. Consider the
-party's condition before attempting another escape, especially when one
-more enemy attack could bring down a companion. Healing or protecting the
-party can make the next attempt safer.
-
-Some fixed battles and boss encounters restrict escape. Prepare for those
-encounters with a recovered party, accessible items, and a clear plan for
-the first few rounds.
-
-\section{Physical attacks, critical hits, multi-target weapons, and damage}
-
-\subsection*{Attack power and the enemy's defense}
-
-An ordinary physical attack uses the companion's strength and equipped
-weapon against the enemy's physical defense. The resulting damage varies
-between strikes. A stronger weapon improves the attacker's opportunities,
-and lowering the enemy's defense can make the whole party's physical
-attacks more effective.
-
-Watch the damage produced by the current equipment. A sturdy enemy may
-be easier to handle after Sap or Decrease has reduced its defense. Bikill
-strengthens an ally's physical offense and is useful when that ally will
-spend several rounds attacking.
-
-For a short encounter, attacking immediately may finish the group quickly.
-In a longer battle, a successful support action has time to improve several
-later attacks. Choose the setup according to the opponent's durability
-and the party's condition.
-
-\subsection*{Choosing an attack pattern}
-
-Weapon properties determine how far an attack reaches:
-\begin{description}
-  \item[Single-target weapons:] Ordinary swords, spears, claws, and similar
-    weapons concentrate their attack on one creature in the selected group.
-    They suit focused attacks against a dangerous enemy or a boss.
-  \item[Group weapons:] Whips and weapons such as the Morning Star attack
-    grouped enemies. They are useful when several creatures share a target
-    entry. The Gringham Whip is a powerful example of this pattern.
-  \item[All-enemy weapons:] Boomerangs, including the Bladed Boomerang and
-    Flame Boomerang, reach across the enemy formation. The Iron Ball of
-    Decimation also attacks all enemies.
-  \item[Repeated attacks:] The Falcon Sword and Killer Earring produce
-    two attacks from an attack action. Their usefulness depends on the
-    wielder's strength, the enemy's defense, and the damage of each strike.
-\end{description}
-
-A Boomerang's 15 attack power and a Bladed Boomerang's 25 attack power can
-be useful early because their attacks reach the whole opposing formation.
-Give a group-clearing weapon to a companion who frequently handles ordinary
-encounters. Keep a suitable focused weapon available for a battle with
-one durable opponent.
-
-Equipment compatibility remains important. Match the weapon's attack
-pattern to a companion who can equip it and use it effectively. After a
-change, check the resulting attack value and observe the next few battles.
-
-\subsection*{Critical hits and special weapon effects}
-
-Critical hits produce heavy physical damage and are especially valuable
-against enemies with very high defense. They can also make an enemy's
-ordinary attack suddenly dangerous. Keep enough HP available to survive
-an unfavorable hit when exploring an unfamiliar area.
-
-Some weapons have additional effects. The Poison Needle can produce a
-one-hit kill, the Demon Spear also has a possible one-hit-kill effect,
-and the Demon Claw can poison an enemy. Their special properties deserve
-consideration alongside their attack power and eligible users.
-
-The Dragon Killer is useful against dragons. Other equipment may add an
-elemental property or an item-use action. Choose those properties for
-the opponents the party is actually fighting, and review the result when
-moving to another area.
-
-\section{Spells, special abilities, MP, and reusable battle items}
-
-\subsection*{Matching a spell to the formation}
-
-The Spell command includes the companion's available battle spells and
-abilities. Check the target pattern before choosing the action. Blaze
-costs 2 MP and targets one enemy, Firebal costs 4 MP and targets a group,
-and Bang costs 5 MP and attacks all enemies.
-
-Use a single-target spell to concentrate damage on one important opponent.
-A group spell is useful against a cluster of the same species. An all-enemy
-spell helps when several groups are present. Enemy resistances affect the
-result, so watch how well the selected spell works in the current encounter.
-
-A well-chosen offensive spell can shorten a battle and reduce the healing
-needed afterward. Keep the journey's remaining demands in mind when
-deciding how much MP to spend on an ordinary group.
-
-\subsection*{Monster abilities}
-
-Monster companions bring abilities such as breath attacks, dances,
-physical techniques, and disruption effects. Breath attacks and many
-monster-specific actions provide useful options with no MP cost.
-Their target patterns and effects still matter when choosing an action.
-
-A breath user can contribute consistent damage through a long dungeon.
-A companion with sleep, paralysis, or disruptive abilities can help control
-a dangerous group. Inspect the available abilities after recruitment and
-after level gains so that the new options become part of the party's plan.
-
-An ability's usefulness depends on the opponent. Switch to another useful
-action when a creature resists the chosen effect. Physical damage, another
-spell family, support, or an item can give that companion a productive turn.
-
-\subsection*{Healing spells and their costs}
-
-Heal costs 2 MP, Healmore costs 5 MP, and Healall costs 7 MP. Healall restores
-one ally's HP completely. Choose a recovery spell that suits the injury
-and leaves enough resources for the next rounds.
-
-Healus costs 18 MP and restores HP across the active party. Healusall costs
-36 MP and provides full-party HP recovery. These spells become valuable
-when an enemy damages several companions at once.
-
-Revival and status treatment add to the healer's workload. Keep another
-recovery option available so that the party can handle an injury while
-the main healer deals with a fallen or disabled companion.
-
-\subsection*{Reusable item actions}
-
-Certain possessions provide battle effects through the Item command:
-\begin{description}
-  \item[Staff of Benediction:] Provides a Healmore effect when used in
-    battle. It gives its eligible user an additional recovery action.
-  \item[Staff of Antimagic:] Provides a Stopspell effect, useful against
-    an enemy that depends on spells and is vulnerable to the effect.
-  \item[Sage's Stone:] Restores HP to the active party and can be used
-    repeatedly during battle.
-  \item[Drum of War:] Strengthens the active party's physical offense,
-    making it useful when several members will continue attacking.
-\end{description}
-
-Give a useful reusable object to an available companion and select its
-item action during that companion's turn. Its use occupies an action,
-so include that action in the round's plan. A fast user can be useful
-when the effect needs to arrive early.
-
-Reusable recovery can preserve a caster's MP for revival, strong healing,
-or support. Keep consumables available for urgent situations where another
-companion needs to handle the same job.
-
-\section{Status ailments, buffs, debuffs, resistance, and spell reflection}
-
-\subsection*{Responding to disabling effects}
-
-Poison, paralysis, sleep, confusion, and spell sealing can change the
-party's priorities in a single round. Check which companions can still
-act and which recovery tools are available to them.
-
-Antidote and Antidote items treat poison. Numboff and Full Moon Herbs
-treat paralysis. An Angel's Bell provides a way to address confusion.
-Carry the relevant items with active members who can use them when an
-important caster is disabled.
-
-Sleep and confusion can make a planned action unreliable. Protect the
-remaining available companions, keep recovery ready, and remove the
-enemy causing the condition when practical. If spell sealing affects
-the healer, use accessible item recovery while handling the encounter.
-
-Some enemy effects drain MP. Removing that enemy early can preserve the
-resources needed for the rest of the dungeon. Check the healer's remaining
-MP after the battle before continuing.
-
-\subsection*{Strengthening the party and weakening an enemy}
-
-Upper raises one ally's physical defense, and Increase strengthens the
-party's physical defense. They are useful against an opponent that relies
-on ordinary physical attacks. Bikill improves an ally's physical offense.
-Choose a companion likely to keep attacking for several rounds when using it.
-
-Sap lowers a single enemy's defense, and Decrease works against a group.
-A successful defense reduction can improve the results of several party
-members' attacks. A resistant opponent may require a different plan.
-
-Some enemies remove beneficial effects during battle. Watch for that
-action and reassess which support effects are worth restoring. Keep
-healing and immediate survival ahead of rebuilding a full set of boosts
-when the party has just taken heavy damage.
-
-\subsection*{Breath protection and equipment resistance}
-
-Barrier helps protect the active party from breath attacks. It is useful
-when a strong fire or cold breath is a regular part of the opponent's
-attack pattern. Combine that protection with equipment suited to the
-same threat and enough party healing to cover the remaining damage.
-
-Armor and accessories can provide protection from particular attacks or
-status effects. Inspect these properties when preparing for an area.
-A companion who repeatedly loses its turn to a condition may benefit
-from a protective item as well as a ready cure.
-
-Enemy resistance also affects offensive spells and disabling actions.
-Watch the battle messages and damage results. A spell that works well
-against one species can have a different result against another.
-
-\subsection*{Using Bounce carefully}
-
-Bounce reflects spells and can help protect a companion from a spell-heavy
-opponent. Plan recovery for the protected member before relying on it.
-Item-based healing provides a useful option while reflection is active.
-
-An enemy using reflection also changes offensive spell selection.
-Physical attacks and suitable abilities or item actions give the party
-other ways to continue. Check the target's current condition before
-committing a powerful spell.
-
-\section{AI tactic modes and when to use direct commands}
-
-\subsection*{Choosing a policy}
-
-Tactics set the behavior of computer-controlled companions. The Hero's
-own actions are chosen through the ordinary command menu. Choose the
-policy that suits the current opponents, remaining resources, and length
-of the journey.
-
-The six policies cover the following approaches:
-\begin{description}
-  \item[All-out attack:] Prioritizes strong offensive actions and powerful
-    available spells or abilities. It suits a group that the party wants
-    to remove quickly. Watch MP and the need for a separate healing action.
-  \item[Balanced fighting:] Mixes offense with recovery and useful support
-    according to the situation. It is convenient for familiar ordinary
-    encounters with a healthy, well-equipped party.
-  \item[Support the Hero:] Emphasizes assistance for the Hero through
-    recovery, strengthening, protection, and hindering the opposition.
-    Use it with the Hero active, able to attack, and suitably equipped.
-  \item[Conserve MP:] Uses physical attacks and available MP-free actions.
-    It is useful during manageable encounters on the way to a demanding
-    area. Keep an emergency recovery action available.
-  \item[Protect life:] Places greater priority on healing and defensive
-    support. It can help a party facing dangerous ordinary groups, and
-    its frequent recovery can consume a substantial amount of MP.
-  \item[Follow orders:] Gives direct control over eligible companions'
-    actions. It is useful for precise targets, planned item use, and
-    coordinated boss strategies.
-\end{description}
-
-Under an MP-conserving policy, the Hero's manually selected spells still
-use their normal MP costs. Check the party's resources as the route
-continues and change the policy when its priorities need to change.
-
-\subsection*{When direct orders are useful}
-
-Use Follow orders when a specific companion needs to heal, revive, use
-a particular item, or apply a support effect at a planned moment. Direct
-orders also help coordinate several attacks against a selected enemy group.
-
-A reusable healing item has a particular owner and uses that owner's turn.
-Selecting the action directly makes it easy to account for both. A second
-member can handle single-target recovery while the item user restores the
-active party.
-
-For a boss encounter, decide the first few rounds in advance. Assign the
-initial defense or offense boosts, identify the main recovery member,
-and leave room for an urgent cure or revival. Adjust the plan as the
-opponent reveals its pattern.
-
-\section{Intelligence, obedience, and monster command restrictions}
-
-\subsection*{Developing reliable companions}
-
-A monster's intelligence affects its ability to follow commands
-consistently. A low-intelligence recruit can act on its own or fail to
-carry out the intended action. Keep a reliable recovery member available
-when training such a companion.
-
-Raising intelligence above 20 provides a practical target for reliable
-obedience. Check the Status screen as the monster gains levels and review
-its available spells and equipment at the same time.
-
-Intelligence Seeds provide permanent increases. Use them on the intended
-companion and check the resulting value after each use. This is useful
-for a promising species whose natural intelligence growth or level cap
-leaves its command reliability short of what the party needs.
-
-\subsection*{Level caps and a companion's role}
-
-Maximum level varies by species. The Dancing Jewel reaches its cap at
-level 7, the Orc King at 30, and the Curer at 50. A Slime Knight can continue
-to level 99. Those limits give the companions different growth schedules.
-
-Consider the complete set of abilities available at the current level.
-A companion with a low cap can still have useful support or protection,
-and a longer-growing species may need several levels before an important
-healing spell becomes available.
-
-Keep an unreliable new recruit in a suitable training role while another
-member handles essential recovery. Once its intelligence and abilities
-support the intended job, move it into a position with more responsibility.
-
-\subsection*{Temporary companions}
-
-Temporary companions such as Papas and Bella have their own battle
-behavior. Plan the Hero's actions around the support or offense they
-provide. Their autonomous actions remain part of those encounters even
-when the ordinary party is using direct orders.
-
-Review the lineup after a temporary companion joins or leaves. Check
-the available healing, item owners, and equipment before continuing into
-the next difficult area.
-
-\section{The three-member active party and wagon reserves}
-
-\subsection*{Filling the active positions}
-
-The normal active party has three members. With the wagon available,
-the travelling roster can contain eight companions, leaving five reserve
-positions behind the active three.
-
-Choose a lineup whose abilities work together. Useful jobs include
-physical damage, recovery, support, and attacks that reach several enemies.
-One companion can cover more than one job, depending on its spells,
-equipment, and current level.
-
-For ordinary exploration, a group-clearing attacker, a reliable recovery
-member, and a durable companion make a comfortable combination. Before
-a stronger opponent, review its likely threats and adjust the roles.
-Several physical attackers can benefit from offensive support, while
-frequent party-wide damage creates more work for recovery.
-
-\subsection*{Companions with useful combinations}
-
-A Slime Knight combines physical equipment options with healing. It
-starts with Heal, learns Healmore at level 5, and gains Healall at level
-20. This gives it useful recovery work alongside its attacks.
-
-An Orc King starts with Vivify, learns Healus at level 8, and gains Revive
-at level 11. Its developing spell list can cover both revival and
-party-wide healing. Keep enough MP available for those jobs when relying
-on it during a longer encounter.
-
-A Curer begins with Healall and later learns additional recovery and
-support. It gains Increase at level 10, Vivify at 12, Healus at 18, Revive
-at 23, and Healusall at 30. Its role can expand substantially as it grows.
-
-Use these combinations when distributing the party's responsibilities.
-A companion capable of fighting and healing can cover an urgent injury
-while the usual healer revives another member or restores the group.
-
-\subsection*{Making the reserves useful}
-
-Reserve positions can hold another healer, an alternative attacker,
-a companion with a particular support ability, or a recruit being trained.
-Keep their equipment and condition suitable for the job they may need
-to perform.
-
-Where the wagon is available, changing members can bring fresh MP or
-a more useful ability into the active lineup. A reserve holding an
-important battle item must be brought into an available position to use
-it during its turn.
-
-Review both the active party and reserves before leaving town. Healing
-and supplies distributed across the travelling roster give more options
-during a long sequence of battles.
-
-\section{Changing members, wagon access, experience, and dungeon restrictions}
-
-\subsection*{Changing the lineup}
-
-Use the battle menu's Change command when the wagon and encounter permit
-it. Select the available companions needed for the next part of the fight,
-then review the new lineup before choosing its actions.
-
-A fresh healer can take over when the original member has spent most of
-its MP. A durable attacker can help after a vulnerable companion has
-taken heavy damage. A specialist can enter to supply a protective spell
-or a particular item action.
-
-The incoming companion needs its own equipment, available MP, and useful
-possessions. Prepare these before the fight so that the change provides
-an immediate benefit.
-
-\subsection*{Areas with restricted wagon access}
-
-Some areas admit only the active party. Choose the three companions needed
-for the dungeon before entering, and give them the supplies they will
-need inside. Include reliable healing and a way to handle the area's
-important status threats.
-
-Check access when the route moves through an entrance, floor connection,
-or fixed encounter. The companions available in an open-field battle can
-differ from the members available deeper in a dungeon.
-
-Keep a useful battle item with a companion who will actually enter the
-area. The same preparation applies to required keys, recovery supplies,
-and any field spell needed for the way out.
-
-\subsection*{Experience and training}
-
-Victories award experience to eligible living companions. In battles
-where the wagon is available, reserves can gain experience alongside the
-active members. This gives newly recruited companions a way to develop
-while a dependable front line handles the encounters.
-
-Choose manageable groups when training a fragile recruit. Keep it alive
-and recovered, and inspect its new abilities as levels increase. A useful
-healing or support spell may arrive well before its final level cap.
-
-For a dungeon with restricted access, arrange the party around the members
-participating in that area. Use accessible wagon battles when the goal
-is to develop companions waiting in reserve.
-
-\section{Healing economy, resource conservation, and boss preparation}
-
-\subsection*{Keeping a dungeon run sustainable}
-
-The journey uses HP, MP, and consumables across several encounters. Keep
-the main healer's remaining MP visible when deciding how far to explore.
-Medical Herbs can handle smaller injuries and preserve spells for the
-next difficult stretch.
-
-MP-free abilities and reusable items can provide steady work through a
-long route. Assign those actions to companions who can use them reliably,
-and keep a stronger recovery option available for a dangerous round.
-
-When escape spells are part of the return plan, reserve their cost.
-Outside and Return each cost 8 MP. A companion casting both needs 16 MP
-available for that journey home, plus any healing still needed beforehand.
-
-\subsection*{Preparing for a boss}
-
-Rest the party, treat ailments, and check equipment before the approach.
-Fill the available inventories with useful recovery and status-treatment
-items. Arrange item ownership so that several active members can help
-when the regular healer is occupied.
-
-Use the opponent's attack pattern to choose support. Increase helps with
-physical pressure, Barrier helps with breath attacks, and suitable armor
-can provide further protection. Offensive strengthening becomes useful
-when the party can keep an attacker working for several rounds.
-
-Some enemies perform several actions in a round. Allow enough HP for
-the possible sequence of attacks before relying on the next heal. Keep
-a second recovery action available for a round in which one companion
-must be revived or cured.
-
-\subsection*{A workable rhythm for a long fight}
-
-Begin by securing the party's immediate safety and applying useful
-support. Continue with focused attacks while watching HP and MP. A
-single-target healer can handle an isolated heavy hit, and party-wide
-recovery can cover a breath or spell that injures all three members.
-
-The Sage's Stone is useful for repeated party recovery when it is
-available. Its user spends an action restoring the group while another
-companion handles a more urgent single-target heal, revival, or support
-spell.
-
-The Drum of War supports a physically focused active party when available.
-After an enemy removes strengthening effects, restore the most useful
-ones as the party's condition allows. Keep the recovery plan working
-through those changes.
-
-If a healer is running low on MP and the wagon is accessible, bring in
-a prepared reserve. Check the incoming member's item ownership and
-abilities before relying on the next round.
-
-\section{Enemy summoning, metal enemies, defeat, and recovery}
-
-\subsection*{Handling reinforcements}
-
-Some enemies call additional creatures into the battle. Reinforcements
-increase the number of actions the party must handle and can prolong
-an encounter that initially looked manageable.
-
-Remove the summoner early when the party can do so safely. Keep track
-of the remaining groups and the abilities of newly arrived creatures.
-A called healer can make an enemy group harder to finish, while another
-disabling enemy can increase the need for recovery items.
-
-Called creatures can also matter during recruitment. Healing monsters
-can appear through summoning, so watch for the species being pursued
-and manage the battle with that goal in mind. Keep the party healthy
-enough to finish the encounter.
-
-\subsection*{Fighting metal enemies}
-
-Metal enemies offer valuable experience and can flee quickly. Their high
-defense and strong resistance to offensive magic make physical actions
-and critical hits important parts of the plan.
-
-Use direct commands to concentrate suitable attacks on the metal group.
-A fast companion has a useful chance to act before the enemy escapes.
-Repeated-attack weapons such as the Falcon Sword or Killer Earring can
-provide additional physical strikes when an eligible user has them.
-
-Keep ordinary enemies in the encounter under control as well. A harmful
-status effect or a badly injured companion can interrupt the attempt.
-After a successful battle, check the levels and abilities of companions
-who gained experience, including eligible wagon reserves.
-
-Choose a hunting area the party can handle comfortably. Nearby recovery
-and dependable equipment help make repeated attempts worthwhile, and
-ordinary victories along the route still contribute to development.
-
-\subsection*{Recovering after a difficult encounter}
-
-Treat poison and other persistent conditions, restore enough HP for the
-next stretch, and check the remaining MP and items. Reorganize the active
-party when another companion is better prepared to continue.
-
-If the party is defeated, half of the carried gold is lost. Banked gold
-remains protected. Arrange revival, treatment, and rest after returning
-to the recovery point, then reconsider the equipment and supplies for
-the next attempt.
-
-Before returning to the difficult area, identify what caused the collapse.
-Repeated breath damage may call for protection and group recovery.
-Spell sealing makes accessible healing items valuable. A sequence of
-heavy physical hits may require better defense, a sturdier companion,
-or earlier healing.
-
-Record the recovered adventure at a church once the party is ready.
-The next attempt can then begin with its equipment, recovery roles,
-and travel plan already in place.
-
-\chapter{First Generation: Childhood}
-\label{written-childhood}
-
-The childhood journey begins with Papas close at hand. Townspeople remember
-him, sailors speak warmly of him, and his strength makes the roads feel
-safe. The Hero's first independent adventures grow out of ordinary village
-life: a missing herbalist, a sick friend, and Bianca's determination to help
-an animal in trouble.
-
-Take time to explore the houses and speak with the people along the way.
-The early finds have immediate value, and the shops offer enough choices
-to shape how comfortably the young party handles its first dungeons.
-Free resting places make it easy to prepare a little at a time.
-
-\section{Birth scene, the opening ship, and Vista Port}
-
-\subsection*{A name and a voyage}
-
-Choose the Hero's name when starting the adventure. The opening scene
-shows Papas waiting anxiously for news of a birth. When he reaches Martha,
-the conversation turns to their new son and the name she has chosen.
-The scene closes as Martha becomes unwell and Papas calls to her.
-
-The Hero then wakes in a ship's cabin with his father. Papas suggests
-some fresh air, and the deck becomes the first place to explore freely.
-The crew's conversations establish a little of their history with Papas.
-The captain remembers an old kindness, the sailors know that father and
-son are travelling together, and the cook has his own opinion about Papas'
-cooking.
-
-\subsection*{The cabin's Medical Herb}
-
-Search the dresser in the cabin where the Hero wakes to obtain a
-\textbf{Medical Herb}. Keep it for the first independent trip into a cave.
-The barrels around the ship are empty, and the chests in the lower crew
-quarters are locked during this voyage.
-
-Walk around the deck and speak to the sailors, including the man at the
-helm. Visit the captain's cabin and the lower rooms with the cook and
-crew. After the conversations, the ship reaches Vista and the captain
-asks the Hero to fetch Papas.
-
-Return to the cabin, speak to Papas, and follow him onto the deck.
-When he asks whether the drawers have been checked, confirm after collecting
-the herb. Father and son disembark, and the ship departs.
-
-\subsection*{Vista Port and the first battle}
-
-At the port, Papas stops to speak with a friend and leaves the Hero free
-to wander nearby. The woman upstairs remembers an earlier visit by Papas
-and a small child. Explore the building and then leave through the port's
-exit when ready to continue.
-
-Three Slimes attack as the Hero steps outside. Choose Attack and let the
-encounter play out. Papas arrives during the battle and quickly takes
-control of the situation. He heals the Hero afterward and leads the way
-to Santa Rosa.
-
-Any encounters on that escorted journey are handled with Papas in the
-party. His post-battle healing keeps the Hero ready for the next steps.
-Save the Medical Herb for the time when the Hero is exploring alone.
-
-\section{Santa Rosa: Sancho, Bianca, supplies, and the missing herbalist}
-
-\subsection*{A homecoming}
-
-Papas' arrival sets the village in motion. A guard runs ahead with the
-news, old acquaintances greet him, and Sancho welcomes both travellers
-into his house. Bianca and her mother are visiting while seeking medicine
-for Duncan, who is ill at home in Alcapa.
-
-Bianca takes the Hero upstairs and tries to read a book about the sky.
-After her mother calls her away, search the room's dresser for a
-\textbf{Leather Hat} and equip it on the Hero. This is the first useful
-piece of free defensive equipment.
-
-Downstairs, Papas announces that he has business elsewhere. Sancho offers
-a place to rest, giving the Hero a convenient recovery point for his
-first solo adventure.
-
-\subsection*{Santa Rosa's household finds}
-
-Collect these objects while looking around the village:
-\begin{description}
-  \item[Leather Hat:] The upstairs dresser in Sancho's house, in the room
-    where Bianca reads to the Hero. Equip it immediately.
-  \item[Medical Herb:] The dresser on the ground floor of Sancho's house.
-  \item[Strength Seed:] The pot in Sancho's basement.
-  \item[Medical Herb:] The dresser upstairs in the weapon shop.
-\end{description}
-
-The Strength Seed permanently improves strength. The Hero is a useful
-recipient because he will be doing the attacking during the cave rescue.
-Using it now gives that improvement time to contribute to the early fights.
-
-Together with the ship's herb, the two village herbs provide a small
-recovery supply. Sancho's free rest makes it practical to keep those items
-for occasions when the Hero is several floors from safety.
-
-\subsection*{Purchase guide: Santa Rosa}
-
-The weapon shop stocks the following early weapons:
-\begin{center}
-\begin{tabular}{@{}lrr@{}}
-\textbf{Weapon} & \textbf{Attack} & \textbf{Price} \\
-\hline
-Cypress Stick & 2 & 10 G \\
-Bamboo Pole & 5 & 50 G \\
-Sharpened Bone & 6 & 70 G \\
-Oak Cudgel & 9 & 130 G \\
-Copper Sword & 13 & 270 G \\
-\end{tabular}
-\end{center}
-
-A \textbf{Bamboo Pole} is an inexpensive immediate upgrade for 50 G.
-It makes the first cave encounters more comfortable while the Hero builds
-levels and earns money. The \textbf{Oak Cudgel} is a stronger intermediate
-choice if 130 G is already available.
-
-The \textbf{Copper Sword} offers the strongest attack in this shop at
-270 G. It is a useful target for players who enjoy a little early training.
-Sancho's free rest allows repeated short trips through the upper cave,
-so the savings can grow safely. Choose a purchase that fits the current
-funds, then equip it before returning to the cave.
-
-The cave itself contains a Leather Shield and Wayfarer's Clothes.
-Those finds will improve the Hero's defense during the rescue. Keep the
-Leather Hat equipped and focus the village's spending on a useful weapon.
-
-\subsection*{Learning what has happened}
-
-Speak with the villagers and visit Bianca's mother at the inn. The man
-who went into the nearby cave to gather medicinal herbs has failed to
-return. The household in the mountain north of Sancho's home also has
-news of the missing herbalist.
-
-Papas is occupied, and the Hero remains within Santa Rosa at this point.
-The cave entrance lies on the west side of town, near the church. Rest
-with Sancho, save at the church, and approach the entrance with the new
-weapon equipped and the herbs available.
-
+\input{sections/section-01.tex}
+\input{sections/section-02.tex}
+\input{sections/section-03.tex}
+\input{sections/section-04.tex}
+\input{sections/section-05.tex}
+\input{sections/section-06.tex}
+\input{sections/section-07.tex}
+\input{sections/section-08.tex}
+\input{sections/section-09.tex}
+\input{sections/section-10.tex}
+\input{sections/section-11.tex}
+\input{sections/section-12.tex}
+\input{sections/section-13.tex}
+\input{sections/section-14.tex}
+\input{sections/section-15.tex}
+\input{sections/section-16.tex}
+\input{sections/section-17.tex}
+\input{sections/section-18.tex}
+\input{sections/section-19.tex}
+\input{sections/section-20.tex}
+\input{sections/section-21.tex}
+\input{sections/section-22.tex}
+\input{sections/section-23.tex}
+\input{sections/section-24.tex}
+\input{sections/section-25.tex}
+\input{sections/section-26.tex}
+\input{sections/section-27.tex}
 \endgroup
 
 \end{document}

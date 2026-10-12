@@ -4,8 +4,12 @@ from typing import Literal
 
 from PIL import Image, ImageDraw
 
-from dq5_map_decode import DecodedFloor, DecodedWorld
-from dq5_treasures import TreasureLocation
+if __package__:
+    from .dq5_map_decode import DecodedFloor, DecodedWorld
+    from .dq5_treasures import TreasureLocation
+else:
+    from dq5_map_decode import DecodedFloor, DecodedWorld
+    from dq5_treasures import TreasureLocation
 
 
 MapLayer = Literal["combined", "base", "upper"]
@@ -23,12 +27,15 @@ def snes_palette(data: bytes) -> tuple[tuple[int, int, int], ...]:
     return tuple(colors)
 
 
-def snes_tile(vram: bytes, reference: int, colors: tuple[tuple[int, int, int], ...]) -> Image.Image:
+def snes_tile(vram: bytes, reference: int, colors: tuple[tuple[int, int, int], ...],
+              *, tile_base: int = 0x4000, palette_base: int = 0) -> Image.Image:
     if len(vram) != 0x10000 or len(colors) != 256 or not 0 <= reference <= 0xFFFF:
         raise ValueError("Invalid native SNES tile or graphics memory")
-    start = 0x4000 + (reference & 0x3FF) * 32
+    start = tile_base + (reference & 0x3FF) * 32
+    palette = palette_base + ((reference >> 10) & 7) * 16
+    if not 0 <= start <= 0x10000 - 32 or not 0 <= palette <= 240:
+        raise ValueError("Native SNES tile or palette leaves graphics memory")
     pattern = vram[start:start + 32]
-    palette = ((reference >> 10) & 7) * 16
     pixels = bytearray(8 * 8 * 4)
     for row in range(8):
         for column in range(8):

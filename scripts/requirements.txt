@@ -1,0 +1,2 @@
+Pillow==12.3.0
+py65816 @ git+https://github.com/tmr4/py65816.git@530658b4fd848c69bfb2065f8e9bb5e70ef5d2a9

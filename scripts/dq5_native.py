@@ -5,11 +5,22 @@ from time import monotonic
 
 from py65816.devices.mpu65c816 import MPU
 
-from dq5_rom import RomImage
+if __package__:
+    from .dq5_rom import RomImage
+else:
+    from dq5_rom import RomImage
 
 
 DMA_OFFSETS = ((0,), (0, 1), (0, 0), (0, 0, 1, 1),
                (0, 1, 2, 3), (0, 1, 0, 1), (0, 0), (0, 0, 1, 1))
+
+
+class NativeCPU(MPU):
+    def ProgramCounterRelLongAddr(self) -> None:
+        offset = self.OperandWord()
+        self.incPC(2)
+        displacement = offset if offset < 0x8000 else offset - 0x10000
+        self.pc = (self.pc + displacement) & self.addrMask
 
 
 class NativeBus:
@@ -153,7 +164,7 @@ class NativeMachine:
         if not 1 <= max_steps <= 10_000_000 or not 0 < timeout <= 120:
             raise ValueError("Native map execution requires bounded step and time limits")
         self.bus = NativeBus(rom)
-        self.cpu = MPU(memory=self.bus)
+        self.cpu = NativeCPU(memory=self.bus)
         self.cpu.mode = 0
         self.cpu.p = self.cpu.MS | self.cpu.INTERRUPT
         self.cpu.sp = 0x1FFF

@@ -8,6 +8,7 @@ from dq5_map_data import MapHeader
 from dq5_map_decode import DecodedFloor, decode_floor
 from dq5_render import render_floor, snes_palette, snes_tile
 from dq5_rom import RomImage
+from dq5_treasures import treasures_for_floor
 
 
 def _palette() -> bytes:
@@ -54,6 +55,29 @@ def test_actual_rom_map_is_nonblank_and_native_size() -> None:
     image = render_floor(decode_floor(RomImage.load(path), 5, 0, timeout=4))
     assert image.size == (112, 160)
     assert len(image.getcolors(maxcolors=10000) or ()) > 8
+
+
+@pytest.mark.parametrize("patch_name", [
+    "Dragon Quest V - Tenkuu no Hanayome (Japan) (En) (v2.01F) (DeJap).bps",
+    "Dragon Quest V - Tenkuu no Hanayome (Japan) (En) (v2.01F - Alt) (DeJap).bps",
+])
+@pytest.mark.parametrize("area_id, floor_id", [(5, 0), (0, 0), (0x53, 0x52)])
+def test_dejap_floor_pixels_and_rewards_match_native_base(patch_name: str, area_id: int, floor_id: int) -> None:
+    resources = Path(__file__).resolve().parents[2] / "Resources/2148-DragonQuest5-English"
+    path = resources / "Dragon Quest V - Tenkuu no Hanayome (Japan).sfc"
+    patch = resources / patch_name
+    if not path.is_file() or not patch.is_file():
+        pytest.skip("The locally owned DQ5 cartridge and patch are not available")
+    base_rom = RomImage.load(path)
+    patched_rom = RomImage.load(path, patch)
+    original = decode_floor(base_rom, area_id, floor_id, timeout=4)
+    translated = decode_floor(patched_rom, area_id, floor_id, timeout=4)
+    assert translated.header == original.header
+    assert translated.cells == original.cells
+    assert translated.vram == original.vram
+    assert translated.palette[:256] == original.palette[:256]
+    assert render_floor(translated).tobytes() == render_floor(original).tobytes()
+    assert treasures_for_floor(patched_rom, translated) == treasures_for_floor(base_rom, original)
 
 
 @pytest.mark.parametrize("scale", [0, 9])

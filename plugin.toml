@@ -1,0 +1,15 @@
+schema_version = 1
+plugin_id = "org.jeschete.retroarch-overlay.dragonquest5"
+slug = "dragonquest5"
+name = "Dragon Quest V"
+api_version = 1
+entry = "plugin.py"
+license = "MIT"
+
+[match]
+cores = ["snes9x", "super_nes"]
+content_hints = ["dragon quest v", "dragon quest 5", "dragonquest5", "dragonquestv"]
+hashes = [
+    "a1222de3d989fdafd3311f37d89cd025",
+    "5651c58a1c87c42f6b91519969658a88",
+]

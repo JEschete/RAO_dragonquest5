@@ -149,3 +149,14 @@ def test_native_execution_limits_are_enforced(owned_rom: RomImage) -> None:
     machine.bus.ram[0x100:0x103] = bytes((0xCB, 0xEA, 0x60))
     with pytest.raises(ValueError, match="external hardware"):
         machine.call(0x000100)
+
+
+@pytest.mark.parametrize("displacement", [0, 5, -5, 0x7FFF, -0x8000])
+def test_native_long_branch_uses_complete_signed_operand(owned_rom: RomImage, displacement: int) -> None:
+    machine = NativeMachine(owned_rom, max_steps=10, timeout=1)
+    machine.bus.ram[0x110:0x113] = bytes((0x82,)) + (displacement & 0xFFFF).to_bytes(2, "little")
+    machine.cpu.pbr = 0
+    machine.cpu.pc = 0x110
+    machine.cpu.step()
+    assert machine.cpu.pc == (0x113 + displacement) & 0xFFFF
+    assert machine.cpu.pbr == 0

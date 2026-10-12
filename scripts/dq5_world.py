@@ -3,8 +3,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from functools import lru_cache
 
-from dq5_map_data import advance_rom
-from dq5_rom import RomImage
+if __package__:
+    from .dq5_map_data import advance_rom
+    from .dq5_rom import RomImage
+else:
+    from dq5_map_data import advance_rom
+    from dq5_rom import RomImage
 
 
 WORLD_STREAMS = ((0x2A8D3E, 0x179A59), (0x2AC310, 0x2AB722), (0x2AD299, 0x2AC51A))

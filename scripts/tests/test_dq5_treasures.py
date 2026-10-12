@@ -7,7 +7,7 @@ import pytest
 from dq5_map_decode import decode_floor
 from dq5_native import NativeMachine
 from dq5_rom import RomImage
-from dq5_treasures import TreasureLocation, chest_groups, hidden_records, search_records, story_records, treasures_for_floor
+from dq5_treasures import TreasureLocation, chest_groups, hidden_records, reward_available, search_records, story_records, treasures_for_floor
 
 
 @pytest.fixture(scope="module")
@@ -108,3 +108,13 @@ def test_native_reward_categories(code: int, reward_type: str, gold: int | None)
     record = TreasureLocation("chest", 0, 0, 0, 0, code, 0x7E2210, 0x80, 0x1EEE4E, 0)
     assert record.reward_type == reward_type
     assert record.gold == gold
+
+
+@pytest.mark.parametrize("area, item, mask", [(0x21, 0x44, 0x10), (0x1F, 0xB0, 4)])
+def test_native_hidden_item_story_suppression(area: int, item: int, mask: int) -> None:
+    record = TreasureLocation("hidden", area, 0, 0, 0, item, 0x7E222C, 0x80, 0x1FF5CB, 0)
+    ram = bytearray(0x20000)
+    assert reward_available(record, None) is None
+    assert reward_available(record, bytes(ram)) is True
+    ram[0x21E2] = mask
+    assert reward_available(record, bytes(ram)) is False

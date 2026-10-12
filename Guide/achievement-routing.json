@@ -1,0 +1,975 @@
+{
+    "gameId":  2148,
+    "achievementCount":  70,
+    "totalPoints":  410,
+    "achievements":  [
+                         {
+                             "id":  40046,
+                             "title":  "The Lost Herbologist",
+                             "points":  4,
+                             "type":  "progression",
+                             "description":  "Free the trapped herbologist",
+                             "primaryFile":  "sections/section-04.tex",
+                             "primaryChapter":  4
+                         },
+                         {
+                             "id":  40116,
+                             "title":  "The Stalker",
+                             "points":  3,
+                             "type":  "missable",
+                             "description":  "Defeat the Walking Statue in Lenoire Castle",
+                             "primaryFile":  "sections/section-04.tex",
+                             "primaryChapter":  4
+                         },
+                         {
+                             "id":  40117,
+                             "title":  "The Haunted Housekeeper",
+                             "points":  5,
+                             "type":  "progression",
+                             "description":  "Defeat the Boss Ghost in Lenoire Castle",
+                             "primaryFile":  "sections/section-04.tex",
+                             "primaryChapter":  4
+                         },
+                         {
+                             "id":  40277,
+                             "title":  "Reward for the Rescue",
+                             "points":  2,
+                             "type":  null,
+                             "description":  "Acquire the Handwoven Cape",
+                             "primaryFile":  "sections/section-04.tex",
+                             "primaryChapter":  4
+                         },
+                         {
+                             "id":  61361,
+                             "title":  "Secret of the Key",
+                             "points":  3,
+                             "type":  "progression",
+                             "description":  "Learn how to unlock wooden doors",
+                             "primaryFile":  "sections/section-04.tex",
+                             "primaryChapter":  4
+                         },
+                         {
+                             "id":  61362,
+                             "title":  "The Sound of Birds",
+                             "points":  5,
+                             "type":  "progression",
+                             "description":  "Retrieve the Flute of Spring",
+                             "primaryFile":  "sections/section-04.tex",
+                             "primaryChapter":  4
+                         },
+                         {
+                             "id":  61364,
+                             "title":  "The Missing Prince",
+                             "points":  5,
+                             "type":  "progression",
+                             "description":  "Rescue Prince Henry",
+                             "primaryFile":  "sections/section-04.tex",
+                             "primaryChapter":  4
+                         },
+                         {
+                             "id":  61363,
+                             "title":  "Ten Years Later",
+                             "points":  3,
+                             "type":  "progression",
+                             "description":  "Become a teenager",
+                             "primaryFile":  "sections/section-05.tex",
+                             "primaryChapter":  5
+                         },
+                         {
+                             "id":  61365,
+                             "title":  "What Did You Expect to Find?",
+                             "points":  2,
+                             "type":  "missable",
+                             "description":  "Examine the pot in the sleeping quarters at the slavery camp.",
+                             "primaryFile":  "sections/section-05.tex",
+                             "primaryChapter":  5
+                         },
+                         {
+                             "id":  61367,
+                             "title":  "Flushed",
+                             "points":  5,
+                             "type":  "progression",
+                             "description":  "Escape from the slavery camp",
+                             "primaryFile":  "sections/section-05.tex",
+                             "primaryChapter":  5
+                         },
+                         {
+                             "id":  61366,
+                             "title":  "Party Wagon",
+                             "points":  2,
+                             "type":  "progression",
+                             "description":  "Purchase the caravan",
+                             "primaryFile":  "sections/section-05.tex",
+                             "primaryChapter":  5
+                         },
+                         {
+                             "id":  61368,
+                             "title":  "A Father\u0027s Legacy",
+                             "points":  5,
+                             "type":  "progression",
+                             "description":  "Collect the sword and the letter from Papas",
+                             "primaryFile":  "sections/section-05.tex",
+                             "primaryChapter":  5
+                         },
+                         {
+                             "id":  61369,
+                             "title":  "Key to the Kingdom",
+                             "points":  4,
+                             "type":  "progression",
+                             "description":  "Obtain the Reinhart\u0027s Key",
+                             "primaryFile":  "sections/section-05.tex",
+                             "primaryChapter":  5
+                         },
+                         {
+                             "id":  61370,
+                             "title":  "A Tale of Two Empresses",
+                             "points":  5,
+                             "type":  "progression",
+                             "description":  "Defeat the impostor Empress",
+                             "primaryFile":  "sections/section-05.tex",
+                             "primaryChapter":  5
+                         },
+                         {
+                             "id":  61371,
+                             "title":  "Beware of Kitty",
+                             "points":  4,
+                             "type":  "progression",
+                             "description":  "Stop the beast terrorizing Kabochi",
+                             "primaryFile":  "sections/section-06.tex",
+                             "primaryChapter":  6
+                         },
+                         {
+                             "id":  61372,
+                             "title":  "I\u0027m Outta Here!",
+                             "points":  3,
+                             "type":  "progression",
+                             "description":  "Demonstrate your skill with the Return spell",
+                             "primaryFile":  "sections/section-06.tex",
+                             "primaryChapter":  6
+                         },
+                         {
+                             "id":  61373,
+                             "title":  "A Pretty Little Thing",
+                             "points":  3,
+                             "type":  "missable",
+                             "description":  "Inquire about puff puff",
+                             "primaryFile":  "sections/section-06.tex",
+                             "primaryChapter":  6
+                         },
+                         {
+                             "id":  61374,
+                             "title":  "From the Heart of the Volcano",
+                             "points":  5,
+                             "type":  "progression",
+                             "description":  "Collect the Ring of Flames",
+                             "primaryFile":  "sections/section-06.tex",
+                             "primaryChapter":  6
+                         },
+                         {
+                             "id":  61375,
+                             "title":  "The Second Ring",
+                             "points":  3,
+                             "type":  "progression",
+                             "description":  "Collect the Ring of Water",
+                             "primaryFile":  "sections/section-06.tex",
+                             "primaryChapter":  6
+                         },
+                         {
+                             "id":  61376,
+                             "title":  "You Are Here",
+                             "points":  2,
+                             "type":  null,
+                             "description":  "Purchase the Wayfarer\u0027s Map",
+                             "primaryFile":  "sections/section-06.tex",
+                             "primaryChapter":  6
+                         },
+                         {
+                             "id":  61377,
+                             "title":  "I\u0027m Flattered, But...",
+                             "points":  2,
+                             "type":  "missable",
+                             "description":  "Declare your love for another",
+                             "primaryFile":  "sections/section-06.tex",
+                             "primaryChapter":  6
+                         },
+                         {
+                             "id":  61378,
+                             "title":  "\u0027Til Death Do Us Part",
+                             "points":  5,
+                             "type":  "progression",
+                             "description":  "Get married",
+                             "primaryFile":  "sections/section-06.tex",
+                             "primaryChapter":  6
+                         },
+                         {
+                             "id":  61379,
+                             "title":  "Let\u0027s Cuddle",
+                             "points":  3,
+                             "type":  "missable",
+                             "description":  "Have a romantic getaway with Bianca",
+                             "primaryFile":  "sections/section-06.tex",
+                             "primaryChapter":  6
+                         },
+                         {
+                             "id":  61380,
+                             "title":  "Not the Hero",
+                             "points":  3,
+                             "type":  "missable",
+                             "description":  "Try on the Zenithian Helm",
+                             "primaryFile":  "sections/section-07.tex",
+                             "primaryChapter":  7
+                         },
+                         {
+                             "id":  61381,
+                             "title":  "Special Delivery",
+                             "points":  3,
+                             "type":  "missable",
+                             "description":  "Collect both presents sent by Ludman for marrying Flora",
+                             "primaryFile":  "sections/section-07.tex",
+                             "primaryChapter":  7
+                         },
+                         {
+                             "id":  61382,
+                             "title":  "What\u0027s That Sound?",
+                             "points":  2,
+                             "type":  null,
+                             "description":  "Spend the night deep under the mountain pass",
+                             "primaryFile":  "sections/section-07.tex",
+                             "primaryChapter":  7
+                         },
+                         {
+                             "id":  61383,
+                             "title":  "The Mimics of Mountain Pass",
+                             "points":  5,
+                             "type":  null,
+                             "description":  "Defeat all three mimics, both man-eater chests, and the demon jar in the mountain pass",
+                             "primaryFile":  "sections/section-07.tex",
+                             "primaryChapter":  7
+                         },
+                         {
+                             "id":  61384,
+                             "title":  "Hidden Treasure - Mountain Pass",
+                             "points":  5,
+                             "type":  null,
+                             "description":  "Find the hidden treasure in Mountain Pass",
+                             "primaryFile":  "sections/section-07.tex",
+                             "primaryChapter":  7
+                         },
+                         {
+                             "id":  61385,
+                             "title":  "Hidden Treasure - Granvania",
+                             "points":  5,
+                             "type":  null,
+                             "description":  "Find the hidden treasure in Granvania",
+                             "primaryFile":  "sections/section-07.tex",
+                             "primaryChapter":  7
+                         },
+                         {
+                             "id":  61386,
+                             "title":  "A Kingdom of Your Own",
+                             "points":  5,
+                             "type":  "progression",
+                             "description":  "Be crowned king",
+                             "primaryFile":  "sections/section-07.tex",
+                             "primaryChapter":  7
+                         },
+                         {
+                             "id":  61387,
+                             "title":  "Guardian of the Tower",
+                             "points":  10,
+                             "type":  "progression",
+                             "description":  "Defeat Jahmi",
+                             "primaryFile":  "sections/section-07.tex",
+                             "primaryChapter":  7
+                         },
+                         {
+                             "id":  61388,
+                             "title":  "Just Like His Father",
+                             "points":  4,
+                             "type":  null,
+                             "description":  "Acquire the Hat of Wind",
+                             "primaryFile":  "sections/section-08.tex",
+                             "primaryChapter":  8
+                         },
+                         {
+                             "id":  61389,
+                             "title":  "Bloodlines",
+                             "points":  3,
+                             "type":  "progression",
+                             "description":  "Acquire the Zenithian Helm",
+                             "primaryFile":  "sections/section-08.tex",
+                             "primaryChapter":  8
+                         },
+                         {
+                             "id":  61390,
+                             "title":  "After All These Years",
+                             "points":  2,
+                             "type":  null,
+                             "description":  "Check in on the woman that you didn\u0027t marry",
+                             "primaryFile":  "sections/section-08.tex",
+                             "primaryChapter":  8
+                         },
+                         {
+                             "id":  61391,
+                             "title":  "A Whole New World",
+                             "points":  3,
+                             "type":  "progression",
+                             "description":  "Acquire the Magic Carpet",
+                             "primaryFile":  "sections/section-08.tex",
+                             "primaryChapter":  8
+                         },
+                         {
+                             "id":  61392,
+                             "title":  "The Sunken City",
+                             "points":  5,
+                             "type":  "progression",
+                             "description":  "Find out why there\u0027s a palace under the water",
+                             "primaryFile":  "sections/section-09.tex",
+                             "primaryChapter":  9
+                         },
+                         {
+                             "id":  61393,
+                             "title":  "Sleight of Hand",
+                             "points":  5,
+                             "type":  "progression",
+                             "description":  "Trick a boy out of his treasure",
+                             "primaryFile":  "sections/section-09.tex",
+                             "primaryChapter":  9
+                         },
+                         {
+                             "id":  61394,
+                             "title":  "Rude Awakening",
+                             "points":  5,
+                             "type":  "progression",
+                             "description":  "Defeat Buorn",
+                             "primaryFile":  "sections/section-09.tex",
+                             "primaryChapter":  9
+                         },
+                         {
+                             "id":  61395,
+                             "title":  "Monsters, Begone!",
+                             "points":  4,
+                             "type":  null,
+                             "description":  "Banish all monsters from the Emblem Cave",
+                             "primaryFile":  "sections/section-09.tex",
+                             "primaryChapter":  9
+                         },
+                         {
+                             "id":  61396,
+                             "title":  "Sealed Away",
+                             "points":  4,
+                             "type":  null,
+                             "description":  "Acquire the Royal Cloak",
+                             "primaryFile":  "sections/section-09.tex",
+                             "primaryChapter":  9
+                         },
+                         {
+                             "id":  61397,
+                             "title":  "A Warm Welcome",
+                             "points":  2,
+                             "type":  null,
+                             "description":  "Talk to the new inhabitants of the haunted castle",
+                             "primaryFile":  "sections/section-05.tex",
+                             "primaryChapter":  5
+                         },
+                         {
+                             "id":  61398,
+                             "title":  "Another Ancient Spell",
+                             "points":  4,
+                             "type":  null,
+                             "description":  "Learn the Chance spell",
+                             "primaryFile":  "sections/section-08.tex",
+                             "primaryChapter":  8
+                         },
+                         {
+                             "id":  61399,
+                             "title":  "Avenged",
+                             "points":  10,
+                             "type":  "progression",
+                             "description":  "Avenge your father\u0027s death",
+                             "primaryFile":  "sections/section-09.tex",
+                             "primaryChapter":  9
+                         },
+                         {
+                             "id":  61400,
+                             "title":  "The Master Revealed",
+                             "points":  4,
+                             "type":  "progression",
+                             "description":  "Restore Master Dragon to his true form",
+                             "primaryFile":  "sections/section-09.tex",
+                             "primaryChapter":  9
+                         },
+                         {
+                             "id":  61404,
+                             "title":  "Power Armor",
+                             "points":  3,
+                             "type":  "progression",
+                             "description":  "Acquire the Zenithian Armor",
+                             "primaryFile":  "sections/section-09.tex",
+                             "primaryChapter":  9
+                         },
+                         {
+                             "id":  61401,
+                             "title":  "A Stronger Curse",
+                             "points":  2,
+                             "type":  "missable",
+                             "description":  "Attempt to free your wife as you were freed",
+                             "primaryFile":  "sections/section-09.tex",
+                             "primaryChapter":  9
+                         },
+                         {
+                             "id":  61402,
+                             "title":  "The Price of Freedom",
+                             "points":  2,
+                             "type":  null,
+                             "description":  "Find out what happened to the guard that helped you escape",
+                             "primaryFile":  "sections/section-09.tex",
+                             "primaryChapter":  9
+                         },
+                         {
+                             "id":  61403,
+                             "title":  "Can I Have Your Autograph?",
+                             "points":  4,
+                             "type":  "missable",
+                             "description":  "Use Ivol\u0027s Book in the battle with Ivol",
+                             "primaryFile":  "sections/section-09.tex",
+                             "primaryChapter":  9
+                         },
+                         {
+                             "id":  61405,
+                             "title":  "End of the Cult",
+                             "points":  10,
+                             "type":  "progression",
+                             "description":  "Defeat Ivol",
+                             "primaryFile":  "sections/section-09.tex",
+                             "primaryChapter":  9
+                         },
+                         {
+                             "id":  61406,
+                             "title":  "A Mother\u0027s Love",
+                             "points":  4,
+                             "type":  null,
+                             "description":  "Reunite with your mother",
+                             "primaryFile":  "sections/section-10.tex",
+                             "primaryChapter":  10
+                         },
+                         {
+                             "id":  61407,
+                             "title":  "Quicker than Quicksilver",
+                             "points":  5,
+                             "type":  null,
+                             "description":  "Defeat a King Metal",
+                             "primaryFile":  "sections/section-10.tex",
+                             "primaryChapter":  10
+                         },
+                         {
+                             "id":  61408,
+                             "title":  "Sliding Puzzle",
+                             "points":  3,
+                             "type":  "progression",
+                             "description":  "Solve the sliding puzzle",
+                             "primaryFile":  "sections/section-10.tex",
+                             "primaryChapter":  10
+                         },
+                         {
+                             "id":  61409,
+                             "title":  "Demon Lord No More",
+                             "points":  10,
+                             "type":  "win_condition",
+                             "description":  "Defeat Mildrath",
+                             "primaryFile":  "sections/section-10.tex",
+                             "primaryChapter":  10
+                         },
+                         {
+                             "id":  61410,
+                             "title":  "A Family Matter",
+                             "points":  10,
+                             "type":  null,
+                             "description":  "Defeat Mildrath using only members of your family",
+                             "primaryFile":  "sections/section-10.tex",
+                             "primaryChapter":  10
+                         },
+                         {
+                             "id":  61411,
+                             "title":  "Heroic Trainer",
+                             "points":  25,
+                             "type":  null,
+                             "description":  "Defeat Mildrath using only recruited monsters",
+                             "primaryFile":  "sections/section-10.tex",
+                             "primaryChapter":  10
+                         },
+                         {
+                             "id":  61412,
+                             "title":  "Until Next Time",
+                             "points":  25,
+                             "type":  null,
+                             "description":  "Defeat Esturk",
+                             "primaryFile":  "sections/section-11.tex",
+                             "primaryChapter":  11
+                         },
+                         {
+                             "id":  61413,
+                             "title":  "Underworld Challenge",
+                             "points":  25,
+                             "type":  null,
+                             "description":  "Defeat Esturk in 25 turns or less (no cheating)",
+                             "primaryFile":  "sections/section-11.tex",
+                             "primaryChapter":  11
+                         },
+                         {
+                             "id":  61414,
+                             "title":  "Monster Tamer",
+                             "points":  2,
+                             "type":  null,
+                             "description":  "Recruit your first wild monster",
+                             "primaryFile":  "sections/section-05.tex",
+                             "primaryChapter":  5
+                         },
+                         {
+                             "id":  61415,
+                             "title":  "Monster Recruiter",
+                             "points":  3,
+                             "type":  null,
+                             "description":  "Recruit five unique monsters",
+                             "primaryFile":  "sections/section-06.tex",
+                             "primaryChapter":  6
+                         },
+                         {
+                             "id":  61416,
+                             "title":  "Monster Hunter",
+                             "points":  5,
+                             "type":  null,
+                             "description":  "Recruit ten unique monsters",
+                             "primaryFile":  "sections/section-07.tex",
+                             "primaryChapter":  7
+                         },
+                         {
+                             "id":  61417,
+                             "title":  "Monster Collector",
+                             "points":  10,
+                             "type":  null,
+                             "description":  "Recruit sixteen unique monsters",
+                             "primaryFile":  "sections/section-10.tex",
+                             "primaryChapter":  10
+                         },
+                         {
+                             "id":  61418,
+                             "title":  "I Don\u0027t Want Your Help",
+                             "points":  10,
+                             "type":  "missable",
+                             "description":  "Reunite with your kitty before recruiting any monsters",
+                             "primaryFile":  "sections/section-06.tex",
+                             "primaryChapter":  6
+                         },
+                         {
+                             "id":  61419,
+                             "title":  "Kandar\u0027s Henchmen",
+                             "points":  5,
+                             "type":  null,
+                             "description":  "Find and defeat all three of Kandar\u0027s Henchmen",
+                             "primaryFile":  "sections/section-10.tex",
+                             "primaryChapter":  10
+                         },
+                         {
+                             "id":  61420,
+                             "title":  "Small Medal Hunter",
+                             "points":  25,
+                             "type":  null,
+                             "description":  "Find 29 small medals hidden in pots, barrels, dressers, and other places",
+                             "primaryFile":  "sections/section-10.tex",
+                             "primaryChapter":  10
+                         },
+                         {
+                             "id":  61421,
+                             "title":  "Small Medal Collector",
+                             "points":  25,
+                             "type":  null,
+                             "description":  "Collect 19 small medals from treasure chests",
+                             "primaryFile":  "sections/section-11.tex",
+                             "primaryChapter":  11
+                         },
+                         {
+                             "id":  61422,
+                             "title":  "King Metal Shield",
+                             "points":  4,
+                             "type":  null,
+                             "description":  "Purchase the King Metal Shield",
+                             "primaryFile":  "sections/section-07.tex",
+                             "primaryChapter":  7
+                         },
+                         {
+                             "id":  61423,
+                             "title":  "King Metal Sword",
+                             "points":  5,
+                             "type":  null,
+                             "description":  "Purchase the King Metal Sword",
+                             "primaryFile":  "sections/section-05.tex",
+                             "primaryChapter":  5
+                         },
+                         {
+                             "id":  61424,
+                             "title":  "The Sacred Raiment",
+                             "points":  5,
+                             "type":  null,
+                             "description":  "Equip the main character with the Sun Crown, Dragon Staff, Royal Cloak, and Shield of Radiance (and no accessories)",
+                             "primaryFile":  "sections/section-11.tex",
+                             "primaryChapter":  11
+                         },
+                         {
+                             "id":  61425,
+                             "title":  "There and Back Again",
+                             "points":  2,
+                             "type":  null,
+                             "description":  "Unlock all 17 return locations",
+                             "primaryFile":  "sections/section-10.tex",
+                             "primaryChapter":  10
+                         },
+                         {
+                             "id":  61426,
+                             "title":  "That\u0027s Got To Hurt",
+                             "points":  5,
+                             "type":  null,
+                             "description":  "Do at least 500 damage to one enemy with a single attack (no cheating)",
+                             "primaryFile":  "sections/section-08.tex",
+                             "primaryChapter":  8
+                         }
+                     ],
+    "medalLocations":  [
+                           {
+                               "Tag":  "S01/29",
+                               "Category":  "S",
+                               "Place":  "Alcapa",
+                               "Details":  "II, pot in the storyteller\u0027s room behind the inn bar.",
+                               "Route":  "5.5"
+                           },
+                           {
+                               "Tag":  "S02/29",
+                               "Category":  "S",
+                               "Place":  "Reinhart",
+                               "Details":  "II, storage-room pot through the Reinhart Key door.",
+                               "Route":  "5.6"
+                           },
+                           {
+                               "Tag":  "S03/29",
+                               "Category":  "S",
+                               "Place":  "Port Selmi",
+                               "Details":  "II, lighthouse dresser above the ladder.",
+                               "Route":  "6.1"
+                           },
+                           {
+                               "Tag":  "S04/29",
+                               "Category":  "S",
+                               "Place":  "Port Selmi",
+                               "Details":  "II, eastern flower patch beside the church.",
+                               "Route":  "6.1"
+                           },
+                           {
+                               "Tag":  "S05/29",
+                               "Category":  "S",
+                               "Place":  "Kabochi",
+                               "Details":  "II, elder\u0027s upstairs pot.",
+                               "Route":  "6.2"
+                           },
+                           {
+                               "Tag":  "S06/29",
+                               "Category":  "S",
+                               "Place":  "Kabochi",
+                               "Details":  "II, ground in the upper-left corner of the underground shop and church.",
+                               "Route":  "6.2"
+                           },
+                           {
+                               "Tag":  "S07/29",
+                               "Category":  "S",
+                               "Place":  "West Kabochi Cave",
+                               "Details":  "II, ground north of the skeleton beside the campfire.",
+                               "Route":  "6.2"
+                           },
+                           {
+                               "Tag":  "S08/29",
+                               "Category":  "S",
+                               "Place":  "Ruraphin",
+                               "Details":  "II, upstairs inn pot.",
+                               "Route":  "6.3"
+                           },
+                           {
+                               "Tag":  "S09/29",
+                               "Category":  "S",
+                               "Place":  "Ruraphin",
+                               "Details":  "II, pot in the sunken area west of the church.",
+                               "Route":  "6.3"
+                           },
+                           {
+                               "Tag":  "S10/29",
+                               "Category":  "S",
+                               "Place":  "Rumor Inn",
+                               "Details":  "II, well at the roadside inn north of Salabona.",
+                               "Route":  "6.4"
+                           },
+                           {
+                               "Tag":  "C01/19",
+                               "Category":  "C",
+                               "Place":  "Ruraphin South Cave",
+                               "Details":  "II, eastern side-branch chest beyond the passage guard.",
+                               "Route":  "6.4"
+                           },
+                           {
+                               "Tag":  "S11/29",
+                               "Category":  "S",
+                               "Place":  "Salabona",
+                               "Details":  "II, dresser in Andy\u0027s house south of the inn.",
+                               "Route":  "6.5"
+                           },
+                           {
+                               "Tag":  "S12/29",
+                               "Category":  "S",
+                               "Place":  "Mountain Village",
+                               "Details":  "II, barrel in the inn\u0027s basement tavern.",
+                               "Route":  "6.7"
+                           },
+                           {
+                               "Tag":  "S13/29",
+                               "Category":  "S",
+                               "Place":  "Mountain Village",
+                               "Details":  "II, right-hand grave marker outside.",
+                               "Route":  "6.7"
+                           },
+                           {
+                               "Tag":  "S14/29",
+                               "Category":  "S",
+                               "Place":  "Desert Oasis",
+                               "Details":  "II, pot at the oasis on Telepador\u0027s desert continent, ship access.",
+                               "Route":  "7.1"
+                           },
+                           {
+                               "Tag":  "S15/29",
+                               "Category":  "S",
+                               "Place":  "Telepador",
+                               "Details":  "II, well in the lower garden near Isis\u0027s chambers.",
+                               "Route":  "7.3"
+                           },
+                           {
+                               "Tag":  "C02/19",
+                               "Category":  "C",
+                               "Place":  "Western mountain",
+                               "Details":  "II, cliff-branch chest after the 550 G detour.",
+                               "Route":  "7.4"
+                           },
+                           {
+                               "Tag":  "S16/29",
+                               "Category":  "S",
+                               "Place":  "Western mountain",
+                               "Details":  "II, underground pot beside the separate Demon Jar.",
+                               "Route":  "7.4"
+                           },
+                           {
+                               "Tag":  "C03/19",
+                               "Category":  "C",
+                               "Place":  "Western mountain",
+                               "Details":  "II, western chest in the upper cave before Chizod.",
+                               "Route":  "7.4"
+                           },
+                           {
+                               "Tag":  "S17/29",
+                               "Category":  "S",
+                               "Place":  "Chizod",
+                               "Details":  "II, barrel in the basement shopping area.",
+                               "Route":  "7.5"
+                           },
+                           {
+                               "Tag":  "C04/19",
+                               "Category":  "C",
+                               "Place":  "Eastern mountain",
+                               "Details":  "II, southwestern side-branch chest below the first pool.",
+                               "Route":  "7.6"
+                           },
+                           {
+                               "Tag":  "C05/19",
+                               "Category":  "C",
+                               "Place":  "Eastern mountain",
+                               "Details":  "II, fixed chest in the middle-route pair with a Mimic.",
+                               "Route":  "7.6"
+                           },
+                           {
+                               "Tag":  "C06/19",
+                               "Category":  "C",
+                               "Place":  "Eastern mountain",
+                               "Details":  "II, exterior lower-ledge chest through the western doorway.",
+                               "Route":  "7.6"
+                           },
+                           {
+                               "Tag":  "S18/29",
+                               "Category":  "S",
+                               "Place":  "Granvania",
+                               "Details":  "II, far northeast ground corner of the royal-room terrace.",
+                               "Route":  "7.7"
+                           },
+                           {
+                               "Tag":  "S19/29",
+                               "Category":  "S",
+                               "Place":  "Granvania",
+                               "Details":  "II, town-floor pot west of the church.",
+                               "Route":  "7.7"
+                           },
+                           {
+                               "Tag":  "S20/29",
+                               "Category":  "S",
+                               "Place":  "Granvania",
+                               "Details":  "II, eastern bathing-room dresser on the soldier floor.",
+                               "Route":  "7.7"
+                           },
+                           {
+                               "Tag":  "C07/19",
+                               "Category":  "C",
+                               "Place":  "Cave of Trials",
+                               "Details":  "II, chest on the northern side branch of the entry route.",
+                               "Route":  "7.8"
+                           },
+                           {
+                               "Tag":  "S21/29",
+                               "Category":  "S",
+                               "Place":  "Demon Tower",
+                               "Details":  "II, western pot in the first teleported treasure room.",
+                               "Route":  "7.11"
+                           },
+                           {
+                               "Tag":  "C08/19",
+                               "Category":  "C",
+                               "Place":  "Demon Tower",
+                               "Details":  "II, chest beside the World Tree Leaf in the upper rock room.",
+                               "Route":  "7.11"
+                           },
+                           {
+                               "Tag":  "S22/29",
+                               "Category":  "S",
+                               "Place":  "Demon Tower",
+                               "Details":  "II, pot in the isolated room reached from Corridor Switch One.",
+                               "Route":  "7.11"
+                           },
+                           {
+                               "Tag":  "S23/29",
+                               "Category":  "S",
+                               "Place":  "Gigo / Jijo\u0027s house",
+                               "Details":  "III, dresser in the mother\u0027s bedroom on the southeastern island.",
+                               "Route":  "8.5"
+                           },
+                           {
+                               "Tag":  "S24/29",
+                               "Category":  "S",
+                               "Place":  "Farthest Shrine",
+                               "Details":  "III, ground immediately below the bucket beside the well, northern continent\u0027s eastern peninsula.",
+                               "Route":  "8.5"
+                           },
+                           {
+                               "Tag":  "C09/19",
+                               "Category":  "C",
+                               "Place":  "Water Shrine",
+                               "Details":  "III, chest at the northward end of the eastern water branch.",
+                               "Route":  "8.6"
+                           },
+                           {
+                               "Tag":  "S25/29",
+                               "Category":  "S",
+                               "Place":  "El Heven",
+                               "Details":  "III, pot in the old couple\u0027s room.",
+                               "Route":  "8.7"
+                           },
+                           {
+                               "Tag":  "C10/19",
+                               "Category":  "C",
+                               "Place":  "Sky Tower",
+                               "Details":  "III, fourth-floor exterior walkway chest on the western ascent.",
+                               "Route":  "9.1"
+                           },
+                           {
+                               "Tag":  "C11/19",
+                               "Category":  "C",
+                               "Place":  "Torokko Mines",
+                               "Details":  "III, first-basement chest in the early treasure detour.",
+                               "Route":  "9.3"
+                           },
+                           {
+                               "Tag":  "S26/29",
+                               "Category":  "S",
+                               "Place":  "Forest of Illusions",
+                               "Details":  "III, jar in the dwarf\u0027s hillside home, child in the party.",
+                               "Route":  "9.5"
+                           },
+                           {
+                               "Tag":  "S27/29",
+                               "Category":  "S",
+                               "Place":  "Zenithia",
+                               "Details":  "III, dresser in the grandson\u0027s second-floor room.",
+                               "Route":  "9.8"
+                           },
+                           {
+                               "Tag":  "S28/29",
+                               "Category":  "S",
+                               "Place":  "Oracleberry prison",
+                               "Details":  "III, Final Key bars, occupied cell floor immediately left of its inmate.",
+                               "Route":  "9.10"
+                           },
+                           {
+                               "Tag":  "C12/19",
+                               "Category":  "C",
+                               "Place":  "Medal King Castle",
+                               "Details":  "III, first medal chest behind the Final Key bars.",
+                               "Route":  "9.10"
+                           },
+                           {
+                               "Tag":  "C13/19",
+                               "Category":  "C",
+                               "Place":  "Medal King Castle",
+                               "Details":  "III, second medal chest behind the same bars. The third chest holds a Golden Tiara.",
+                               "Route":  "9.10"
+                           },
+                           {
+                               "Tag":  "C14/19",
+                               "Category":  "C",
+                               "Place":  "Emblem Cave",
+                               "Details":  "III, Final Key access, eastern treasure-floor branch chest.",
+                               "Route":  "9.10"
+                           },
+                           {
+                               "Tag":  "C15/19",
+                               "Category":  "C",
+                               "Place":  "Boble Tower",
+                               "Details":  "III, first isolated fifth-floor room chest after the rooftop descent.",
+                               "Route":  "9.11"
+                           },
+                           {
+                               "Tag":  "C16/19",
+                               "Category":  "C",
+                               "Place":  "Boble Tower",
+                               "Details":  "III, southern chest in the western basement pair. The northern chest is a Mimic.",
+                               "Route":  "9.11"
+                           },
+                           {
+                               "Tag":  "S29/29",
+                               "Category":  "S",
+                               "Place":  "Shahanna",
+                               "Details":  "III, barrel beside the outer wall.",
+                               "Route":  "10.3"
+                           },
+                           {
+                               "Tag":  "C17/19",
+                               "Category":  "C",
+                               "Place":  "Evil Mountain",
+                               "Details":  "III, isolated summit-detour chest down the northern stairs west of the fork.",
+                               "Route":  "10.4"
+                           },
+                           {
+                               "Tag":  "C18/19",
+                               "Category":  "C",
+                               "Place":  "Evil Mountain",
+                               "Details":  "III, western chest in the lower arrow-floor room opposite the Echoing Hat.",
+                               "Route":  "10.5"
+                           },
+                           {
+                               "Tag":  "C19/19",
+                               "Category":  "C",
+                               "Place":  "Bonus Dungeon",
+                               "Details":  "Post, entrance\u0027s western side-room chest beside the Restoration Orb.",
+                               "Route":  "11.2"
+                           }
+                       ]
+}
