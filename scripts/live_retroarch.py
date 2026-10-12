@@ -10,6 +10,13 @@ import subprocess
 import sys
 from time import monotonic
 
+if __package__:
+    from .dq5_rom import RomImage
+else:
+    from dq5_rom import RomImage
+
+
+ENGLISH_ROMS = frozenset(("a1222de3d989fdafd3311f37d89cd025", "5651c58a1c87c42f6b91519969658a88"))
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_INSTALL = Path("F:/Emulators/LaunchBox/Emulators/RetroArch")
@@ -30,6 +37,8 @@ def launch(install: Path, rom: Path, output: Path, port: int) -> dict[str, objec
     core = install / "cores/snes9x_libretro.dll"
     if not executable.is_file() or not core.is_file() or not rom.is_file():
         raise ValueError("RetroArch, Snes9x, and the supplied DeJap cartridge must exist")
+    if RomImage.load(rom).md5 not in ENGLISH_ROMS:
+        raise ValueError("Live acceptance targets translated DeJap cartridges only")
     try:
         active = request(port, "GET_STATUS")
     except (OSError, TimeoutError):
@@ -179,9 +188,27 @@ def press_start(port: int, output: Path, *, button: str = "start") -> dict[str, 
     return result
 
 
+def screenshot(port: int, output: Path) -> dict[str, object]:
+    session = json.loads((output / "session.json").read_text(encoding="utf-8"))
+    if session["port"] != port:
+        raise ValueError("Screenshot endpoint does not match the isolated session")
+    status = request(port, "GET_STATUS")
+    if not any(f"crc32={checksum}" in status.casefold() for checksum in ("6110a1a2", "9400cb3c")):
+        raise ValueError("Screenshot requires a running supported translated cartridge")
+    existing = set(output.glob("*.png"))
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as connection:
+        connection.sendto(b"SCREENSHOT", ("127.0.0.1", port))
+    result = capture(port, output)
+    images = tuple(path for path in output.glob("*.png") if path not in existing)
+    if not images:
+        raise ValueError("The isolated core has not produced its requested screenshot")
+    result["screenshot"] = str(max(images, key=lambda path: path.stat().st_mtime_ns))
+    return result
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Isolated DQ5 validation: read-only memory and explicit test-session Start")
-    parser.add_argument("action", choices=("launch", "status", "capture", "start", "button"))
+    parser.add_argument("action", choices=("launch", "status", "capture", "start", "button", "screenshot"))
     parser.add_argument("--button", choices=("start", "a", "b", "up", "down", "left", "right"), default="start")
     parser.add_argument("--install", type=Path, default=DEFAULT_INSTALL)
     parser.add_argument("--rom", type=Path, default=DEFAULT_ROM)
@@ -193,7 +220,8 @@ def main() -> int:
                   if arguments.action == "launch" else press_start(arguments.port, arguments.output)
                   if arguments.action == "start" else press_start(arguments.port, arguments.output, button=arguments.button)
                   if arguments.action == "button" else capture(arguments.port, arguments.output)
-                  if arguments.action == "capture" else {"status": request(arguments.port, "GET_STATUS")})
+                  if arguments.action == "capture" else screenshot(arguments.port, arguments.output)
+                  if arguments.action == "screenshot" else {"status": request(arguments.port, "GET_STATUS")})
     except (OSError, ValueError, RuntimeError, TimeoutError) as error:
         parser.exit(1, f"DQ5 live validation: {error}\n")
     print(json.dumps(result, indent=2))
