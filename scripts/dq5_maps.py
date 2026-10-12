@@ -1,0 +1,135 @@
+from __future__ import annotations
+
+import argparse
+import csv
+from dataclasses import asdict
+import json
+import os
+from pathlib import Path
+from time import monotonic
+
+from dq5_map_data import map_catalog
+from dq5_map_decode import decode_floor, decode_world
+from dq5_render import render_floor, render_treasure_markers, render_world
+from dq5_rom import RomImage
+from dq5_treasures import treasures_for_floor
+
+
+def _hex_id(value: str) -> int:
+    try:
+        identifier = int(value, 16)
+    except ValueError as error:
+        raise argparse.ArgumentTypeError("Map identifiers must be hexadecimal") from error
+    if not 0 <= identifier <= 255:
+        raise argparse.ArgumentTypeError("Map identifiers must fit in one byte")
+    return identifier
+
+
+def _world_region(value: str) -> tuple[int, int, int, int]:
+    try:
+        values = tuple(int(part.strip(), 0) for part in next(csv.reader([value])))
+    except (ValueError, StopIteration, csv.Error) as error:
+        raise argparse.ArgumentTypeError("A world region must contain x,y,width,height integers") from error
+    if (len(values) != 4 or min(values[:2]) < 0 or min(values[2:]) <= 0
+            or values[0] + values[2] > 512 or values[1] + values[3] > 512):
+        raise argparse.ArgumentTypeError("A world region must fit within 512x512 native cells")
+    return values[0], values[1], values[2], values[3]
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Decode native DQ5 SNES maps from a locally owned cartridge.")
+    parser.add_argument("--rom", type=Path, required=True)
+    parser.add_argument("--patch", type=Path)
+    selection = parser.add_mutually_exclusive_group(required=True)
+    selection.add_argument("--list", action="store_true")
+    selection.add_argument("--all", action="store_true")
+    selection.add_argument("--area", type=_hex_id)
+    selection.add_argument("--world", type=int, choices=(0, 1, 2))
+    parser.add_argument("--floor", type=_hex_id, default=0)
+    parser.add_argument("--region", type=_world_region, default=(0, 0, 512, 512))
+    parser.add_argument("--era", type=int, choices=(0, 1, 2), default=1)
+    parser.add_argument("--ram", type=Path)
+    parser.add_argument("--layer", choices=("combined", "base", "upper"), default="combined")
+    parser.add_argument("--no-markers", action="store_true")
+    parser.add_argument("--scale", type=int, choices=range(1, 9), default=1)
+    parser.add_argument("--output", type=Path)
+    parser.add_argument("--time-budget", type=float, default=300.0)
+    arguments = parser.parse_args()
+    if not 0 < arguments.time_budget <= 3600:
+        parser.error("The time budget must be positive and at most 3600 seconds")
+    started = monotonic()
+    try:
+        rom = RomImage.load(arguments.rom, arguments.patch)
+        catalog = map_catalog(rom)
+        if arguments.list:
+            print(json.dumps({"rom": rom.variant, "md5": rom.md5, "maps": [asdict(header) for header in catalog]}, indent=2))
+            return 0
+        selected = catalog if arguments.all else tuple(header for header in catalog
+                                                       if (header.area_id, header.floor_id) == (arguments.area, arguments.floor))
+        world_ids = (0, 1, 2) if arguments.all else ((arguments.world,) if arguments.world is not None else ())
+        if not selected and not world_ids:
+            raise ValueError("The selected native map does not exist")
+        ram = None
+        if arguments.ram is not None:
+            if arguments.ram.stat().st_size != 0x20000:
+                raise ValueError("A WRAM snapshot must contain exactly 128 KiB")
+            ram = arguments.ram.read_bytes()
+        output = arguments.output or (Path(os.environ.get("LOCALAPPDATA", str(Path.home())))
+                                      / "RetroArchOverlay/plugin-state/org.jeschete.retroarch-overlay.dragonquest5/native-maps")
+        output.mkdir(parents=True, exist_ok=True)
+        records = []
+        treasure_rows = []
+        for header in selected:
+            remaining = arguments.time_budget - (monotonic() - started)
+            if remaining <= 0:
+                raise ValueError("Native map extraction reached its total time budget")
+            decoded = decode_floor(rom, header.area_id, header.floor_id, era=arguments.era,
+                                   ram_snapshot=ram, timeout=min(20.0, remaining))
+            treasures = treasures_for_floor(rom, decoded, ram_snapshot=ram)
+            image = render_floor(decoded, layer=arguments.layer, scale=arguments.scale)
+            filename = f"map-{header.key}-era{arguments.era}-{arguments.layer}-x{arguments.scale}.png"
+            destination = output / filename
+            image.save(destination)
+            marker_filename = None
+            if treasures and not arguments.no_markers:
+                marker_filename = destination.stem + "-items.png"
+                render_treasure_markers(image, treasures, scale=arguments.scale).save(output / marker_filename)
+            locations = [{**asdict(treasure), "item_id": treasure.item_id, "reward_type": treasure.reward_type,
+                          "gold": treasure.gold, "label": treasure.label}
+                         for treasure in treasures]
+            treasure_rows.extend(locations)
+            record = {"family": "floor", **asdict(header), "image": filename, "pixel_width": image.width,
+                      "pixel_height": image.height, "instructions": decoded.instructions,
+                      "marker_image": marker_filename, "treasures": locations}
+            records.append(record)
+            print(f"{header.key}: {image.width}x{image.height}, {len(treasures)} rewards -> {destination}", flush=True)
+        for world_id in world_ids:
+            remaining = arguments.time_budget - (monotonic() - started)
+            if remaining <= 0:
+                raise ValueError("Native world extraction reached its total time budget")
+            decoded_world = decode_world(rom, world_id, era=arguments.era, ram_snapshot=ram,
+                                         timeout=min(20.0, remaining))
+            image = render_world(decoded_world, region=arguments.region, layer=arguments.layer, scale=arguments.scale)
+            xcoord, ycoord, width, height = arguments.region
+            filename = f"world-{world_id}-era{arguments.era}-{arguments.layer}-{xcoord}-{ycoord}-{width}-{height}-x{arguments.scale}.png"
+            image.save(output / filename)
+            records.append({"family": "world", "world_id": world_id, "region": list(arguments.region),
+                            "image": filename, "pixel_width": image.width, "pixel_height": image.height,
+                            "instructions": decoded_world.instructions})
+            print(f"world-{world_id}: {image.width}x{image.height} -> {output / filename}", flush=True)
+        manifest = {"schema_version": 1, "rom_md5": rom.md5, "rom_variant": rom.variant,
+                    "era": arguments.era, "layer": arguments.layer, "scale": arguments.scale, "maps": records}
+        (output / "maps.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+        fields = ["kind", "area_id", "floor_id", "x", "y", "reward_code", "flag_address", "flag_mask",
+                  "source_address", "index", "context", "collected", "item_id", "reward_type", "gold", "label"]
+        with (output / "treasures.csv").open("w", encoding="utf-8", newline="") as stream:
+            writer = csv.DictWriter(stream, fieldnames=fields)
+            writer.writeheader()
+            writer.writerows(treasure_rows)
+    except (OSError, ValueError) as error:
+        parser.exit(1, f"DQ5 map decoder: {error}\n")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
