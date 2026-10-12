@@ -1,0 +1,58 @@
+# Local ROMs, emulator saves, and RAM snapshots.
+*.sfc
+*.smc
+*.srm
+*.sav
+*.rtc
+*.state
+*.state[0-9]*
+*.state.auto*
+*.state.png
+*.ram
+*.wram
+
+# Generated native map exports, if directed into this repository.
+native-maps/
+
+# Python bytecode, test/tool caches, and coverage output.
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+
+# Local Python environments and secrets; retain shareable templates.
+.venv/
+venv/
+.env
+.env.*
+!.env.example
+!.env.sample
+!.env.template
+
+# LaTeX build intermediates; retain the guide source and PDF.
+/Guide/*.aux
+/Guide/*.fdb_latexmk
+/Guide/*.fls
+/Guide/*.log
+/Guide/*.out
+/Guide/*.toc
+/Guide/*.synctex
+/Guide/*.synctex.gz
+
+# Temporary files, editor backups, and operating-system metadata.
+.tmp/
+*.tmp
+*.temp
+*.bak
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
