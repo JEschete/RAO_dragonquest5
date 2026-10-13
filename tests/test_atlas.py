@@ -48,7 +48,11 @@ def test_map_cache_ignores_current_party_hp_changes(plugin_package: str) -> None
     original = bytearray(0x20000)
     changed = bytearray(original)
     changed[0x2042] = 1
+    changed[0x194B:0x1950] = bytes((1, 2, 3, 4, 5))  # music and step counters next to the era byte
     assert module.map_state_key(bytes(original)) == module.map_state_key(bytes(changed))
+    changed[0x1948] = 2
+    assert module.map_state_key(bytes(original)) != module.map_state_key(bytes(changed))
+    changed[0x1948] = 0
     changed[0x2210] = 1
     assert module.map_state_key(bytes(original)) != module.map_state_key(bytes(changed))
     with pytest.raises(ValueError):

@@ -1,6 +1,6 @@
 # DQ5 Implementation Status
 
-## Detailed Remaining Work: 2026-10-12
+## Detailed Remaining Work: 2026-10-13
 
 This section is the current handoff. Historical coverage and test milestones
 later in this document do not reinstate dropped features or certify unfinished
@@ -10,9 +10,10 @@ work. The approved requirements remain in
 ### Current Scope And Order
 
 1. Treasure and medals: implemented native-table slice; remaining acceptance
-	and scripted-grant completeness checks are described below.
-2. Navigator: current unfinished implementation slice.
-3. English labels: remaining implementation follows Navigator.
+	and scripted-grant completeness checks are the active follow-up.
+2. Navigator: native implementation and focused live acceptance are complete.
+3. English labels: remaining implementation follows Treasure/Medal acceptance
+	and Navigator.
 4. Shops and upgrade recommender: remaining implementation follows labels.
 5. Map fidelity: remaining implementation follows the recommender.
 6. Final acceptance of the retained plugin and its existing party/battle/lifecycle
@@ -72,11 +73,13 @@ Still to close:
 4. Check the user-facing list through initial map preparation, browsing,
 	collection, and conditional availability changes. Keep partial prepared-map
 	coverage explicit until the atlas is ready.
-5. Validate actual pickup and medal-exchange transitions with captured/live
-	gameplay: item/gold receipt, flag update, chest appearance change, carried
-	count, exchange count, and reward spending.
-6. Check save-load/rewind reversals of collection flags. Progress and markers
-	must derive from the current snapshot, not accumulated session observations.
+5. Validate medal exchange through the Medal King gameplay menu: carried-medal
+	deposit, balance change, reward purchase, and item receipt. The current live
+	checkpoint is child-era, so the Medal King route is not naturally available;
+	the native accessor parity test is not a substitute for that transaction.
+6. Chest item receipt, saved-flag update, open appearance, carried inventory,
+	list update, and reversal to an earlier state pass in the private Snes9x
+	acceptance rig. Keep medal pickup/exchange progress snapshot-derived.
 
 Owning files:
 [scripts/dq5_treasures.py](scripts/dq5_treasures.py),
@@ -90,7 +93,7 @@ Existing checks:
 [tests/test_map_session.py](tests/test_map_session.py), and
 [tests/test_maps_qt.py](tests/test_maps_qt.py).
 The latest table/outcome/medal/atlas slice passed 43 focused tests; that is not
-live acceptance of every scripted grant or pickup transition.
+live acceptance of every scripted grant or medal-exchange transition.
 
 Completion criteria: represented pickups agree with native/live coordinates,
 outcomes, prerequisites, and flags; all progress is snapshot-derived; medals are
@@ -106,75 +109,49 @@ Implemented:
   bits and translated Return names.
 - Arrival coordinates computed through the native interpolation routine rather
   than displaying only the record's base position.
-- Raw native exit fields and source-rectangle data. The matched-exit consumer
-	compares record byte 4 against `$C3`; the transfer routine copies record
-	byte 11 into `$C3`. Their user-facing meaning remains unlabeled pending a
-	verified movement-state mapping.
+- Half-open exit source rectangles and level masks. The native approach
+	consumer compares record byte 4 with `$C3`; values 1/2/4 select levels 1/2/3.
+	The transfer routine copies record byte 11 into `$C3` for the destination
+	level. These fields are not compass directions.
 - Verified diagonal stair/slope annotations. Types `$61/$62` are movement
   features, not damage hazards.
-- Current Magic Key, Final Key, and Reinhart Key possession/carriers from the
-  traveling party, checked against the native inventory-search accessor.
-- Special/world exits remain visible with raw destination bytes and are not
-	offered as ordinary floor actions. Uncatalogued native targets remain raw
-	diagnostics rather than guessed map links.
+- All 249 native door records across 113 floors are catalogued from the stream
+	used by the game's loader. Door classes, stronger-key precedence, carried
+	key reachability, story/time/one-way cases, open flags, and current-area scope
+	are checked against the native door routine and live door interaction.
+- Local cell types 2/3 and world type `$4D` are classified from the native
+	damage consumers. Native and live checks cover 1/7 HP per step, the 1-HP
+	minimum, walking party members, riding suppression, and Stepguard. Transient
+	Stepguard status is limited to the current map's markers.
+- Scripted area leaves and world entrances resolve through the native transfer
+	routines, including tested story, time, and position overrides. Special or
+	uncatalogued targets remain visible without fabricated floor IDs.
+- Native place/area, entrance, and floor labels are shared across navigation
+	actions. Unprepared destinations remain pending rows, never unusable actions.
 
-Missing implementation:
-
-1. **Locked-door classification.** Establish which decoded cell/interaction
-	fields actually identify doors. Do not use visual resemblance, slopes,
-	unaligned opcode matches, or key-acquisition code as the contract.
-2. **Door requirements and precedence.** For each verified class, establish the
-	required key or story/access state, whether a stronger key substitutes,
-	whether wagon inventory counts, and whether an already-open door still
-	requires the key. Handle rusted, externally locked, and story-controlled
-	doors only if their actual semantics are established.
-3. **Door presentation.** Add positions and state-qualified markers/details
-	using current inventory, flags, and live cells. An unopened door must not be
-	called accessible merely because the party carries some key.
-4. **Damage-hazard classification.** Identify the actual native damage-floor
-	field/consumer. Distinguish damage terrain from diagonal movement,
-	impassability, collision, transitions, and story annotations.
-5. **Hazard effects and protection.** Verify amount, affected companions,
-	lethal/nonlethal behavior, and any spell/equipment protection before
-	publishing damage or a protected-state verdict.
-6. **Scripted exit overrides.** Apply the native era/story/vehicle conditions
-	that change destination, arrival, or access. The parsed static exit record
-	is not necessarily the committed live result for a scripted transition.
-7. **Source-region handling.** Verify record interval conventions, sentinel
-	bounds, direction masks, and arrival interpolation for each record class.
-	Invalid source origins are no longer clamped into false map markers. Keep
-	computed arrivals within a valid destination or explicitly report the
-	established special transition.
-8. **Readable direction/connection details.** Establish whether distinct exit
-	fields encode directions before assigning compass labels. Preserve raw values
-	for diagnostics until the movement-state mapping is verified.
+Navigator implementation is complete. Broad runtime/layout acceptance remains
+under Retained Runtime Acceptance; it is not a reason to leave the verified
+door, hazard, exit, or level semantics marked unimplemented.
 
 Owning files: [game/navigation.py](game/navigation.py),
-[game/location.py](game/location.py), [game/map_session.py](game/map_session.py),
-[game/memory.py](game/memory.py), and [game/adapter.py](game/adapter.py).
-Reuse [tests/test_navigation.py](tests/test_navigation.py),
+[game/doors.py](game/doors.py), [game/hazards.py](game/hazards.py),
+[game/places.py](game/places.py), [game/map_session.py](game/map_session.py),
+[game/location.py](game/location.py), and [game/adapter.py](game/adapter.py).
+Focused gates include [tests/test_navigation.py](tests/test_navigation.py),
+[tests/test_doors.py](tests/test_doors.py), [tests/test_hazards.py](tests/test_hazards.py),
+[tests/test_map_fidelity.py](tests/test_map_fidelity.py),
 [tests/test_map_session.py](tests/test_map_session.py), and
-[tests/test_plugin.py](tests/test_plugin.py).
-The implemented Navigator slice passed 22 focused navigation/production checks.
-Latest validation after the exit-detail updates: 18 navigation tests and 8
-map-session integration tests passed on 2026-10-12. These do not close the
-remaining native door/hazard or full live-acceptance requirements.
+[tests/test_live_acceptance.py](tests/test_live_acceptance.py).
 
-Known verified anchors: exit directory `$2A:EB0E`, records `$2A:D812`, native
-directory selector `$01:9430`, approach consumer `$00:CDEC`, scripted transfer
-consumers `$2A:F47D/$2A:F4B9`, arrival interpolation `$2A:F636`, and world
-entrances `$04:FD97`. Key IDs `$B8/$B9/$C8` and carried-key rows do not establish
-a door-to-key mapping by themselves.
+Verified anchors: exit directory `$2A:EB0E`, records `$2A:D812`, source/level
+consumer `$00:CDEC`, scripted transfer `$2A:F47D/$2A:F4B9`, interpolation
+`$2A:F636`, door stream `$01:D2FC`, key/door checker `$01:DCFC`, local damage
+`$06:8004`, and world damage `$00:BCA8`.
 
-Evidence still needed: a correctly aligned native access/damage consumer with
-its data flow, or before/after gameplay captures whose door/hazard behavior and
-inventory/flag changes are known. A single RAM dump without known behavior does
-not identify the meaning of an unknown byte.
-
-Completion criteria: each offered connection follows the current native rule;
-each door/hazard label has a verified class and requirement/effect; state changes
-and rewind update the verdict; no invisible scope reduction or invented access
-rule is used to call Navigator complete.
+Completion criteria met for the Navigator implementation and focused live
+slice: offered connections follow native transfers; door and hazard labels have
+verified classes/rules/effects; live inventory, open flags, Stepguard, and rewind
+update the verdict; no key rule is inferred from item IDs alone.
 
 ### 3. English Labels
 
@@ -186,28 +163,32 @@ Implemented:
   a native name record exists, and Return-destination names.
 - Known punctuation and the saved-hero name token. Unsupported glyphs and
   out-of-table ordinals fail explicitly rather than reading neighboring data.
+- The native 22-place area-name table is mapped to its actual area IDs. Native
+	area-entry and world entrance/exit tables provide current floor and world
+	labels across map browsing, navigation, and treasure rows. Unnamed areas keep
+	their stable IDs and receive a relative-direction descriptor, not a claimed
+	proper name.
 
 Missing implementation:
 
-1. **Area/floor identity mapping.** Establish the native association from map
-	area IDs to translated place names. Current labels such as `Area 1A / Floor
-	01` are not the finished English-location experience. Return-menu ordinal
-	is not automatically a map-area ordinal.
-2. **Era-dependent identities.** Handle places whose name or identity differs
+1. **Era-dependent identities.** Handle places whose name or identity differs
 	by era, world variant, interior, or scripted state, without approximate
-	world-coordinate matching.
-3. **One shared naming surface.** Apply verified location labels consistently
-	to atlas selectors, current location, entrance/exit actions, treasure rows,
-	and destination details. Keep stable internal map keys separate from names.
-4. **Remaining commands and dynamic tokens.** Resolve supported retained
+	world-coordinate identity matching. Directional descriptors for unnamed
+	areas remain orientation hints, not canonical translations.
+2. **One shared naming surface.** Verify the existing area labels remain
+	consistent in every retained user-facing panel/export, keeping stable
+	internal map keys separate from display names.
+3. **Remaining commands and dynamic tokens.** Resolve supported retained
 	battle/item-use commands and any saved-name tokens beyond the currently
 	verified cases. A genuinely nameless native operation needs an accurate
 	behavioral label or explicit diagnostic identity, not a fabricated spell.
-5. **Bounds and unsupported cases.** Determine actual physical table limits,
+
+4. **Bounds and unsupported cases.** Determine actual physical table limits,
 	duplicate/empty records, and formatting controls before expanding glyph or
 	string-table coverage. Do not suppress all item/party output because one
 	optional label cannot be decoded.
-6. **DeJap variants.** Check naming behavior on both supported translation
+
+5. **DeJap variants.** Check naming behavior on both supported translation
 	identities, including any alternate wording, while keeping the unpatched
 	cartridge refused by runtime.
 
@@ -222,8 +203,10 @@ Reuse [tests/test_names.py](tests/test_names.py),
 tests.
 
 Known lookup anchors: directory `$21:959B`, patched lookup `$21:955D`, command
-table 3, item table 5, and Return table 11. These identify strings, not an
-unverified mapping from every area or event to those strings.
+table 3, item table 5, Return table 11, named place-area lookup `$25:857C` / data
+`$25:85D5`, area entries `$0F:EA97`, and world entrance/exit tables `$04:FD97` /
+`$04:FE83`. These do not establish canonical English names for every unnamed
+area or era-dependent identity.
 
 Completion criteria: retained user-facing locations and commands have verified
 English labels, names are consistent across views/exports, stable IDs survive
@@ -393,6 +376,23 @@ restart dropped features or add a new objectives/guide/RA system.
   new test suite or scratch runner for each small observation.
 - The last historical combined milestone was 433 passing checks. Many focused
   edits followed; do not quote 433 as a newly run full acceptance result.
+- 2026-10-13 focused native/atlas gate: 64 passed, 1 skipped. The skip is the
+	exhaustive whole-atlas pass on the second DeJap identity; first-build full
+	atlas checks and separate alternate-build parity checks run.
+- 2026-10-13 hazard/map-session gate: 31 passed, including current-map-only
+	Stepguard markers. Private Snes9x Navigator checks pass for key-door
+	open/rewind, barrier damage/Stepguard, and world exit/battle/return.
+- 2026-10-13 full live acceptance: 8 passed, 3 failed. Remaining failures are
+	the armor-shop route (no merchant section) and two rendered-frame comparisons
+	(Church sample count and Reinhart pixel alignment); these are later ordered
+	commerce/map slices, not Navigator door/hazard failures.
+- 2026-10-13 battle-stat correction: use `$0760` battle records only while a
+	live enemy remains; terminal battle scenes use the party's native field
+	stats. All 32 battle tests and the focused live battle/return test pass.
+- 2026-10-13 battle-stat follow-up: battle ATK/DEF comes from the live `$0760`
+	combatant records only while enemies remain; terminal battle scenes fall back
+	to party-native stats instead of stale combat workspace values. All 32 battle
+	tests and the focused live battle/return test pass.
 - The latest Navigator slice passed 22 checks; treasure outcome/medal/atlas
   passed 43; treasure interaction passed 41; casino removal/party/medals
   passed 16. These are overlapping runs, not additive test totals.

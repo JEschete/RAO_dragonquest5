@@ -16,12 +16,14 @@ CHEST_REWARDS = 0x1EEE4E
 SEARCH_REWARDS = 0x1EF08B
 HIDDEN_REWARDS = 0x1FF5CB
 CHEST_TYPES = 0x2AFF3E
+# Every pickup flag is addressed as $7E2190 + ($80 | index); the native setter is $12:F839.
+PICKUP_FLAGS = 0x7E2210
 SCRIPTED_OUTCOMES = (
-    (0x12F51F, "Story interaction"), (0x12F534, "Child-era passage"),
-    (0x12F574, "Child-era passage"), (0x12F58C, "Story interaction"),
-    (0x12F5CB, "Inscription"), (0x12F5D5, "Story interaction"),
-    (0x12F619, "Story interaction"), (0x12F651, "Story interaction"),
-    (0x12F67F, "Story interaction"), (0x12F6C2, "Story transition"),
+    (0x12F51F, "Secrets of the Key"), (0x12F534, "Child-only passage"),
+    (0x12F574, "Child-only passage"), (0x12F58C, "Hidden staircase"),
+    (0x12F5CB, "Inscription"), (0x12F5D5, "Jar of light"),
+    (0x12F619, "Hidden staircase"), (0x12F651, "Stone switch"),
+    (0x12F67F, "Hidden staircase"), (0x12F6C2, "Story search"),
 )
 
 
@@ -105,8 +107,8 @@ def hidden_records(rom: RomImage) -> tuple[TreasureLocation, ...]:
 
 @lru_cache(maxsize=3)
 def story_records(rom: RomImage) -> tuple[TreasureLocation, ...]:
-    return (*_flagged_records(rom, 0x1EF435, "story", 0x7E2190, 8),
-            *_flagged_records(rom, 0x1EF4DF, "story", 0x7E2190, 8))
+    return (*_flagged_records(rom, 0x1EF435, "story", PICKUP_FLAGS, 8),
+            *_flagged_records(rom, 0x1EF4DF, "story", PICKUP_FLAGS, 8))
 
 
 def reward_available(reward: TreasureLocation, snapshot: bytes | None) -> bool | None:
@@ -119,6 +121,8 @@ def reward_available(reward: TreasureLocation, snapshot: bytes | None) -> bool |
             return not bool(snapshot[0x21E2] & 0x10)
         if reward.item_id == 0xB0 and reward.area_id == 0x1F:
             return not bool(snapshot[0x21E2] & 4)
+        if reward.item_id == 0xC5 and (reward.area_id, reward.floor_id) == (4, 1):
+            return bool(snapshot[0x2197] & 0x20)
     if reward.kind == "story" and 0x1EF435 <= reward.source_address < 0x1EF4BF:
         if reward.item_id == 0xD4:
             return bool(snapshot[0x21D6] & 8)
@@ -126,6 +130,12 @@ def reward_available(reward: TreasureLocation, snapshot: bytes | None) -> bool |
             return bool(snapshot[0x219F] & 0x80)
     if reward.reward_code in (0xD001, 0xD002):
         return snapshot[0x1948] == 0
+    if reward.reward_code == 0xD003:
+        return snapshot[0x1948] == 0 or bool(snapshot[0x21D1] & 8)
+    if reward.reward_code == 0xD008:
+        return not bool(snapshot[0x2190] & 0x80)
+    if reward.reward_code == 0xD009:
+        return bool(snapshot[0x21A8] & 4) and not bool(snapshot[0x21A9] & 4)
     return True
 
 
@@ -137,6 +147,30 @@ def scripted_outcome(rom: RomImage, reward_code: int) -> str:
     if rom.read(address, 3) != bytes((0xC9,)) + reward_code.to_bytes(2, "little"):
         raise ValueError("Scripted reward does not match its verified native comparison")
     return description
+
+
+# Saved bit each scripted search sets, where it sets one. None of them hands over an item or a medal.
+SCRIPTED_STATE = {0xD000: (0x2199, 0x02), 0xD003: (0x21A4, 0x01), 0xD006: (0x21A0, 0x80),
+                  0xD007: (0x21E2, 0x01), 0xD008: (0x21A0, 0x40), 0xD009: (0x21A1, 0x80)}
+SCRIPTED_EFFECTS = {
+    0xD000: "Teaches the Thief's Key technique; no item is received",
+    0xD001: "Passage usable only in the child era", 0xD002: "Passage usable only in the child era",
+    0xD003: "Reveals a descending staircase until the floor is left",
+    0xD004: "Text only", 0xD005: "Shows the current color of the jar",
+    0xD006: "Reveals a descending staircase until the area is left",
+    0xD007: "One-time switch", 0xD008: "Reveals a descending staircase until the area is left",
+    0xD009: "Starts a story scene when its conditions are met",
+}
+
+
+def scripted_done(reward_code: int, snapshot: bytes | None) -> bool | None:
+    """Whether the scripted search's own native bit is currently set; None when it keeps no state."""
+    if snapshot is None or reward_code not in SCRIPTED_STATE:
+        return None
+    if len(snapshot) != 0x20000:
+        raise ValueError("Scripted search state requires complete WRAM shape")
+    address, mask = SCRIPTED_STATE[reward_code]
+    return bool(snapshot[address] & mask)
 
 
 @lru_cache(maxsize=6)

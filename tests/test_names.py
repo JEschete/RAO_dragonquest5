@@ -47,3 +47,40 @@ def test_static_human_name_table_does_not_spill_into_titles(owned_rom, plugin_pa
     assert names.get(0, 7) == "Bella"
     with pytest.raises(ValueError, match="leaves its table"):
         names.get(0, 8)
+
+def test_every_retained_table_decodes_inside_its_physical_bounds(owned_rom, plugin_package: str) -> None:
+    labels = importlib.import_module(f"{plugin_package}.game.names")
+    names = labels.NativeNames(owned_rom)
+    counts = {}
+    for table in (labels.HUMAN_NAMES, labels.TITLE_NAMES, labels.COMMAND_NAMES, labels.MONSTER_NAMES,
+                  labels.ITEM_NAMES, labels.TACTIC_NAMES, labels.COMPANION_NAMES, labels.PLACE_NAMES):
+        count = 0
+        for index in range(256):
+            try:
+                encoded = names.encoded(table, index)
+            except ValueError as error:
+                assert "leaves its table" in str(error)
+                break
+            assert names.display(table, index, "Hero") == "Hero".join(
+                labels.decode_glyphs(part) for part in encoded.split(b"\x7A"))
+            count += 1
+        counts[table] = count
+    assert counts == {labels.HUMAN_NAMES: 8, labels.TITLE_NAMES: 17, labels.COMMAND_NAMES: 171,
+                      labels.MONSTER_NAMES: 236, labels.ITEM_NAMES: 222, labels.TACTIC_NAMES: 6,
+                      labels.COMPANION_NAMES: 168, labels.PLACE_NAMES: 22}
+    assert names.get(labels.PLACE_NAMES, 21) == "Faerie Castle"
+    assert owned_rom.read(0x258585, 2) == bytes.fromhex("E016")
+    with pytest.raises(ValueError, match="leaves its table"):
+        names.get(labels.PLACE_NAMES, 22)
+
+
+def test_command_labels_use_native_strings_or_an_explicit_native_number(owned_rom, plugin_package: str) -> None:
+    labels = importlib.import_module(f"{plugin_package}.game.names")
+    commands = importlib.import_module(f"{plugin_package}.game.commands")
+    names = labels.NativeNames(owned_rom)
+    assert commands.command_label(names, 0x73, "Jude") == "Fight"
+    assert commands.command_label(names, 0x36, "Jude") == "Stepguard"
+    assert commands.command_label(names, 0xAC, "Jude") == "Native action $AC"
+    assert names.display(labels.TITLE_NAMES, 3, "Jude") == "Jude's Wife"
+    with pytest.raises(ValueError, match="saved hero name"):
+        names.display(labels.TITLE_NAMES, 3, "")

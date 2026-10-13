@@ -103,7 +103,7 @@ def resistance_advice(names: NativeNames, party: PartyState, battle: Battle, sna
 
 def party_sections(state: PartyState, battle: Battle | None = None, snapshot: bytes | None = None) -> tuple[PanelSection, ...]:
     active = tuple(member for member in state.companions if member.role == "active")
-    if battle is not None and battle.active and snapshot is not None:
+    if battle is not None and battle.active and battle.enemies and snapshot is not None:
         active = tuple(replace(member,
             attack=int.from_bytes(snapshot[0x760 + ordinal * 12:0x762 + ordinal * 12], "little"),
             defense=int.from_bytes(snapshot[0x762 + ordinal * 12:0x764 + ordinal * 12], "little"),
@@ -138,6 +138,7 @@ def party_sections(state: PartyState, battle: Battle | None = None, snapshot: by
                                          key=key, priority=30, preview_limit=0,
                                          actions=tuple(_member_detail(member) for member in members)))
     sections.append(PanelSection("Balances", (PanelRow(f"Gold {state.gold:,}"),
+                                              PanelRow(f"Deposited gold {state.deposit:,}"),
                                               PanelRow(f"Casino coins {state.coins:,}")),
                                  role="area", key="balances", priority=40))
     return tuple(sections)

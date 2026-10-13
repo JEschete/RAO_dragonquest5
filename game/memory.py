@@ -150,3 +150,16 @@ def capture(memory: MemoryReader, *, live_map: bool = False) -> MemorySnapshot:
             raise ValueError("Native scene/map changed during palette capture")
         regions.append((0x3914, 0x200))
     return MemorySnapshot(bytes(ram), tuple(regions))
+
+
+def capture_with_retry(memory: MemoryReader, *, live_map: bool = False) -> MemorySnapshot:
+    """Retry one whole read when frame advancement races the coherence guards."""
+    transient = ("DQ5 state changed while", "Live native map identity/dimensions changed",
+                 "Live native palette changed", "Native scene/map changed")
+    for attempt in range(2):
+        try:
+            return capture(memory, live_map=live_map)
+        except ValueError as error:
+            if attempt or not str(error).startswith(transient):
+                raise
+    raise AssertionError("Bounded snapshot retry completed without a result")

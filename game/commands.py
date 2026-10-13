@@ -15,6 +15,16 @@ def command_cost(rom: RomImage, identity: int, current_mp: int) -> int:
     return 0 if cost == 31 else 36 if cost == 30 else current_mp if cost == 29 else cost
 
 
+def command_label(names: NativeNames, identity: int, hero_name: str) -> str:
+    """DeJap's own action string; an action past the end of the name table keeps its native number."""
+    try:
+        return names.display(COMMAND_NAMES, identity, hero_name)
+    except ValueError as error:
+        if "leaves its table" not in str(error):
+            raise
+        return f"Native action ${identity:02X}"
+
+
 def selected_commands(rom: RomImage, names: NativeNames, party: PartyState, battle: Battle,
                       snapshot: bytes) -> PanelSection | None:
     if not battle.active or battle.arena:
@@ -30,7 +40,7 @@ def selected_commands(rom: RomImage, names: NativeNames, party: PartyState, batt
                 continue
             name, detail = "Defend", ""
         elif kind == 1:
-            name = names.display(COMMAND_NAMES, identity, names.companion(0, 0, snapshot))
+            name = command_label(names, identity, names.companion(0, 0, snapshot))
             attributes = rom.byte(0x268765 + identity)
             cost = command_cost(rom, identity, member.mp)
             scope = ("Special", "Single", "Group", "All")[(attributes >> 5) & 3]

@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from functools import lru_cache
 
 from ..scripts.dq5_rom import RomImage
+from ..scripts.dq5_text import travel_text
 from .state import Companion
 
 
@@ -87,6 +88,34 @@ def battle_use_command(rom: RomImage, item_id: int) -> int | None:
     raise ValueError("Native item-use dispatch has no bounded terminator")
 
 
+# Identify ($11:83D8) prints message $048E + effect; the listed effects print fixed combinations instead.
+APPRAISAL_COMBINATIONS = {0x38: (0x0491, 0x0490), 0x39: (0x0494, 0x0490), 0x3A: (0x0491, 0x0498),
+                          0x3B: (0x0499, 0x0490), 0x3C: (0x0491, 0x0499, 0x0490)}
+# "Pointless as a battle item" and "something special happens when used" say nothing about wearing the item.
+BATTLE_USE_NOTES = frozenset((0x048F, 0x0490))
+
+
+def appraisal_messages(rom: RomImage, effect: int) -> tuple[int, ...]:
+    if not 0 <= effect <= 0x3F:
+        raise ValueError("Native appraisal effect must fit its six-bit field")
+    if (rom.read(0x1183DB, 3) != bytes.fromhex("009414") or rom.read(0x1183E2, 2) != bytes.fromhex("C938")
+            or rom.read(0x11842B, 10) != bytes.fromhex("3A487B68C22018698F04")):
+        raise ValueError("Native Identify routine differs from its verified form")
+    if effect == 0:
+        return ()
+    if effect < 0x38:
+        return (0x048E + effect,)
+    return APPRAISAL_COMBINATIONS.get(effect, (0x04AE, 0x0490))
+
+
+@lru_cache(maxsize=648)
+def item_properties(rom: RomImage, item_id: int) -> tuple[str, ...]:
+    """What the game's own Identify spell says wearing or carrying the item does, in DeJap's words."""
+    effect = item_profile(rom, item_id).appraisal_effect
+    return tuple(travel_text(rom, message) for message in appraisal_messages(rom, effect)
+                 if message not in BATTLE_USE_NOTES)
+
+
 def mp_recovery(rom: RomImage, item_id: int) -> tuple[int, int, int | None] | None:
     if item_id == 0xA8:
         address = 0x20BE06
@@ -110,6 +139,15 @@ class EquipmentComparison:
     equipped: ItemProfile | None
     power_delta: int | None
     effect_tradeoff: bool
+    gains: tuple[str, ...] = ()
+    losses: tuple[str, ...] = ()
+    use_before: int | None = None
+    use_after: int | None = None
+
+    @property
+    def clear_upgrade(self) -> bool:
+        """More power with nothing given up: not cursed, no lost property, no lost or changed battle use."""
+        return self.power_delta is not None and self.power_delta > 0 and not self.effect_tradeoff
 
 
 def compare_equipment(rom: RomImage, item_id: int, members: tuple[Companion, ...]) -> tuple[EquipmentComparison, ...]:
@@ -124,12 +162,15 @@ def compare_equipment(rom: RomImage, item_id: int, members: tuple[Companion, ...
             raise ValueError("More than one item is equipped in the same native equipment class")
         equipped = baseline[0] if baseline else None
         delta = candidate.power - (equipped.power if equipped is not None else 0) if candidate.kind < 4 else None
-        tradeoff = candidate.cursed or candidate.appraisal_effect > 1 or (
-            equipped is not None and (equipped.cursed or equipped.appraisal_effect > 1)
-        )
-        tradeoff = tradeoff or battle_use_command(rom, candidate.item_id) != (
-            battle_use_command(rom, equipped.item_id) if equipped is not None else None)
-        comparisons.append(EquipmentComparison(member, candidate, equipped, delta, tradeoff))
+        offered = item_properties(rom, candidate.item_id)
+        current = item_properties(rom, equipped.item_id) if equipped is not None else ()
+        gains = tuple(text for text in offered if text not in current)
+        losses = tuple(text for text in current if text not in offered)
+        use_after = battle_use_command(rom, candidate.item_id)
+        use_before = battle_use_command(rom, equipped.item_id) if equipped is not None else None
+        tradeoff = candidate.cursed or bool(losses) or (use_before is not None and use_before != use_after)
+        comparisons.append(EquipmentComparison(member, candidate, equipped, delta, tradeoff, gains, losses,
+                                               use_before, use_after))
     return tuple(comparisons)
 
 

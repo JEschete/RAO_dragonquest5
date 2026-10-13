@@ -6,9 +6,10 @@ from retroarch_overlay.models import PanelAction, PanelChip, PanelRow, PanelSect
 
 from ..scripts.dq5_rom import RomImage
 from .battle import Battle
+from .commands import command_label
 from .items import ITEM_COUNT, battle_use_command, item_profile, mp_recovery
 from .monsters import MonsterProfile, damage_resistance_scale, drop_denominator, monster_catalog
-from .names import COMMAND_NAMES, ITEM_NAMES, MONSTER_NAMES, NativeNames
+from .names import ITEM_NAMES, MONSTER_NAMES, NativeNames
 
 
 class Catalogs:
@@ -18,12 +19,7 @@ class Catalogs:
         self.hero_name = hero_name
 
     def _action_label(self, identity: int) -> str:
-        try:
-            return self.names.display(COMMAND_NAMES, identity, self.hero_name)
-        except ValueError as error:
-            if "leaves its table" not in str(error):
-                raise
-            return f"Native action ${identity:02X}"
+        return command_label(self.names, identity, self.hero_name)
 
     def _monster_row(self, profile: MonsterProfile) -> PanelRow:
         name = self.names.display(MONSTER_NAMES, profile.monster_id, self.hero_name)

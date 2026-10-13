@@ -69,6 +69,21 @@ def _block_table(rom: RomImage, bank: int) -> bytes:
     return struct.pack(f"<{len(pointers)}H", *pointers).ljust(0x1000, b"\x00")
 
 
+def _enter_floor(ram: bytearray, area_id: int, floor_id: int) -> None:
+    """Apply the flag resets the loader performs when the area ($00:A8C5) or floor ($00:A957) changes."""
+    if ram[0x21C7] != area_id:
+        if area_id not in (0x0F, 0x52):
+            ram[0x21C2:0x21C6] = bytes(4)
+        ram[0x219F:0x21A5] = bytes(6)
+        ram[0x21EE] &= 0xFD
+    elif ram[0x21C8] != floor_id:
+        ram[0x21A1:0x21A5] = bytes(4)
+    ram[0x21C7], ram[0x21C8] = area_id, floor_id
+    if area_id == 5 and ram[0x21A9] & 0x20:
+        ram[0x21C2] |= 4
+        ram[0x21A9] &= 0xDF
+
+
 def decode_floor(
     rom: RomImage,
     area_id: int,
@@ -78,7 +93,13 @@ def decode_floor(
     ram_snapshot: bytes | None = None,
     max_steps: int = 2_000_000,
     timeout: float = 20.0,
+    field_setup: bool = True,
 ) -> DecodedFloor:
+    """Decode one floor as the native loader at $01:8EC2 builds it.
+
+    `field_setup` adds the loader's closing passes: door placement, opened chests and
+    story-dependent cell patches, each driven by the flags in the WRAM snapshot.
+    """
     if era not in (0, 1, 2):
         raise ValueError("DQ5 era must be 0 (child), 1 (young adult), or 2 (later adult)")
     if ram_snapshot is not None and len(ram_snapshot) != 0x20000:
@@ -87,6 +108,8 @@ def decode_floor(
     machine = NativeMachine(rom, max_steps=max_steps, timeout=timeout)
     if ram_snapshot is not None:
         machine.bus.ram[:] = ram_snapshot
+    if field_setup:
+        _enter_floor(machine.bus.ram, area_id, floor_id)
     if area_id < 0x50:
         machine.bus.ram[0xB000:0xC000] = _block_table(rom, 0x16)
     else:
@@ -111,6 +134,12 @@ def decode_floor(
         (0x01B9EA, False),
     ):
         machine.call(address, long_return=long_return)
+    if field_setup:
+        for address, long_return in ((0x01F3C9, True), (0x1FFC50, True), (0x018F93, False)):
+            if address == 0x01F3C9 and area_id >= 0x50:
+                continue  # the loader places doors only on ordinary areas
+            machine.cpu.p = 0x34
+            machine.call(address, long_return=long_return)
     if (machine.bus[0xBF], machine.bus[0xC0]) != (header.width, header.height):
         raise ValueError("Native loader dimensions disagree with the cartridge header")
     return DecodedFloor(header, bytes(machine.bus.ram), bytes(machine.bus.vram),

@@ -18,6 +18,8 @@ TACTIC_NAMES = 6
 COMPANION_NAMES = 10
 PLACE_NAMES = 11
 ENGLISH_ROMS = frozenset(("a1222de3d989fdafd3311f37d89cd025", "5651c58a1c87c42f6b91519969658a88"))
+# The place table is the last one in its bank, so only its native consumer ($25:857C, CPX #$16) bounds it.
+TABLE_LIMITS = {PLACE_NAMES: 22}
 GLYPHS = {**{0x0C + index: chr(ord("A") + index) for index in range(26)},
           **{0x34 + index: chr(ord("a") + index) for index in range(26)},
           **{0x02 + index: str(index) for index in range(10)},
@@ -44,6 +46,8 @@ class NativeNames:
     def encoded(self, table: int, index: int) -> bytes:
         if not 0 <= table < 12 or not 0 <= index <= 255:
             raise ValueError("Native name table or ordinal is outside its byte-sized range")
+        if index >= TABLE_LIMITS.get(table, 256):
+            raise ValueError(f"Native name ordinal leaves its table (table {table}, ordinal ${index:02X})")
         pointer = self.rom.long(NAME_DIRECTORY + table * 3)
         boundaries = [self.rom.long(NAME_DIRECTORY + candidate * 3) for candidate in range(12)]
         end = min((value for value in boundaries if value > pointer and value >> 16 == pointer >> 16),

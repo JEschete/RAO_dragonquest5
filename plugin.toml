@@ -9,7 +9,4 @@ license = "MIT"
 [match]
 cores = ["snes9x", "super_nes"]
 content_hints = ["dragon quest v", "dragon quest 5", "dragonquest5", "dragonquestv"]
-hashes = [
-    "a1222de3d989fdafd3311f37d89cd025",
-    "5651c58a1c87c42f6b91519969658a88",
-]
+hashes = ["5651c58a1c87c42f6b91519969658a88", "a1222de3d989fdafd3311f37d89cd025"]

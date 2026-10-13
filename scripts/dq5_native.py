@@ -172,7 +172,11 @@ class NativeMachine:
         self.timeout = timeout
         self.instructions = 0
 
-    def call(self, address: int, *, long_return: bool = False) -> int:
+    def call(self, address: int, *, long_return: bool = False, unwinds: int = 0) -> int:
+        """Run one native routine. `unwinds` permits a routine that returns through
+        that many bytes of caller frame the caller pushed beforehand."""
+        if not 0 <= unwinds <= 16:
+            raise ValueError("A native routine may unwind at most a small prepared frame")
         bank, entry = divmod(address, 0x10000)
         stack = self.cpu.sp
         self.cpu.pbr = bank
@@ -184,8 +188,9 @@ class NativeMachine:
         recent: deque[int] = deque(maxlen=12)
         for count in range(self.max_steps):
             current = (self.cpu.pbr << 16) | self.cpu.pc
-            if self.cpu.pbr == bank and self.cpu.pc == 0xFF00:
-                if self.cpu.sp != stack:
+            # Code that merely runs through $FF00 still has its return address pushed.
+            if self.cpu.pbr == bank and self.cpu.pc == 0xFF00 and self.cpu.sp >= stack:
+                if self.cpu.sp != stack and (not unwinds or self.cpu.sp != stack + unwinds):
                     raise ValueError(f"Native routine ${address:06X} returned with an unbalanced stack")
                 self.instructions += count
                 return count

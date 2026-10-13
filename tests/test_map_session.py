@@ -4,6 +4,8 @@ import importlib
 from concurrent.futures import Future
 from pathlib import Path
 
+import pytest
+
 
 def test_native_map_session_prepares_off_gui_and_publishes_real_images(owned_rom, plugin_package: str,
                                                                      tmp_path: Path) -> None:
@@ -27,8 +29,10 @@ def test_native_map_session_prepares_off_gui_and_publishes_real_images(owned_rom
         assert layer.image_path.is_file()
         assert layer.image_loader is None
         assert (layer.tile_width, layer.anchor_x) == (8, 4)
-        assert tuple(view.title for view in layer.image_variants) == ("Combined", "Upper")
-        assert layer.image_path.stem.endswith("-base")
+        assert layer.image_title == "Full" and layer.title == "Faerie Castle / Floor 00"
+        assert tuple(view.title for view in layer.image_variants) == ("Ground", "Upper")
+        assert not layer.image_path.stem.endswith(("-base", "-upper"))
+        assert layer.image_variants[0].image_path.stem.endswith("-base")
         assert all(view.area == layer.area and view.map_id == layer.map_id for view in layer.image_variants)
         assert len({layer.key, *(view.key for view in layer.image_variants)}) == 3
         assert all(view.image_path.is_file() for view in layer.image_variants)
@@ -128,8 +132,134 @@ def test_world_variants_keep_native_wrapping_and_distinct_image_cache_keys(owned
     paths = tuple(tmp_path / name for name in ("combined.png", "base.png", "upper.png"))
     layer = session._world_layer(0, paths)
     assert layer.wraps and layer.wrap_width == layer.wrap_height == 512
-    assert layer.image_path == paths[1]
-    assert tuple(view.image_path for view in layer.image_variants) == (paths[0], paths[2])
+    assert layer.image_path == paths[0] and layer.image_title == "Full" and layer.title == "World Map"
+    assert tuple(view.image_path for view in layer.image_variants) == (paths[1], paths[2])
+    assert layer.regions and all(region.kind == "hazards" for region in layer.regions)
+    assert any(point.title == "Alcapa" for point in layer.waypoints)
     assert len({layer.key, *(view.key for view in layer.image_variants)}) == 3
     assert all(view.map_id == layer.map_id for view in layer.image_variants)
     session.close()
+
+
+def test_remote_hazard_markers_do_not_inherit_current_stepguard(owned_rom, plugin_package: str,
+                                                                tmp_path: Path) -> None:
+    assets = importlib.import_module(f"{plugin_package}.game.atlas")
+    labels = importlib.import_module(f"{plugin_package}.game.names")
+    sessions = importlib.import_module(f"{plugin_package}.game.map_session")
+    hazards = importlib.import_module(f"{plugin_package}.game.hazards")
+    session = sessions.MapSession(assets.NativeAtlas(owned_rom, tmp_path, labels.NativeNames(owned_rom)))
+    ram = bytearray(0x20000)
+    ram[0xBE] = 0x80
+    ram[0xBC:0xBE] = bytes((0x21, 5))
+    ram[0x194E] = 1
+    local_key, remote_key = "floor-21-05", "world-0"
+    patches = {local_key: (hazards.HazardPatch(2, 10, 11, 4),),
+               remote_key: (hazards.HazardPatch(0x4D, 10, 11, 4),)}
+    try:
+        overlays = session._access_overlays(bytes(ram), frozenset(patches), patches)
+        markers = {overlay.layer_key: overlay.waypoints[0] for overlay in overlays}
+        assert markers[local_key].marker == "hazard-protected"
+        assert "Stepguard is protecting" in markers[local_key].detail
+        assert markers[remote_key].marker == "hazard"
+        assert "Stepguard" not in markers[remote_key].detail
+    finally:
+        session.close()
+
+def _floor_ram(area: int, floor: int, header, xcoord: int, ycoord: int) -> bytearray:
+    ram = bytearray(0x20000)
+    ram[0x1948] = 1
+    ram[0xBC:0xC3] = bytes((area, floor, 0x80, header.width, header.height, xcoord, ycoord))
+    ram[0x21C7:0x21C9] = bytes((area, floor))
+    return ram
+
+
+def test_walking_actors_and_step_counters_do_not_request_a_new_render(owned_rom, plugin_package: str,
+                                                                    tmp_path: Path) -> None:
+    assets = importlib.import_module(f"{plugin_package}.game.atlas")
+    labels = importlib.import_module(f"{plugin_package}.game.names")
+    sessions = importlib.import_module(f"{plugin_package}.game.map_session")
+    atlas = assets.NativeAtlas(owned_rom, tmp_path, labels.NativeNames(owned_rom))
+    atlas.catalog = (atlas.header(5, 0),)
+    session = sessions.MapSession(atlas)
+    ram = _floor_ram(5, 0, atlas.header(5, 0), 6, 7)
+    cells = bytearray(atlas.floor(5, 0, 1).decoded.cells)
+    palette = atlas.floor(5, 0, 1).decoded.palette
+    try:
+        session.capture(bytes(ram), bytes(cells), palette)
+        session._current.result(timeout=10)
+        session.capture(bytes(ram), bytes(cells), palette)
+        settled = session._requested
+        cells[0] ^= 1          # an actor stepped onto a cell
+        ram[0x194C] += 1       # step counter
+        ram[0x194D] += 3
+        ram[0x2042] = 9        # party HP
+        session.capture(bytes(ram), bytes(cells), palette)
+        assert session._requested == settled and session._current is None
+        cells[2] ^= 1          # a real tile change does
+        session.capture(bytes(ram), bytes(cells), palette)
+        assert session._requested != settled and session._current is not None
+    finally:
+        session.close()
+    assert assets.stable_cells(bytes(range(16))) == bytes((0, 1, 2, 3, 4, 5, 6, 7, 0, 9, 10, 11, 12, 13, 14, 15))
+    with pytest.raises(ValueError):
+        assets.stable_cells(bytes(7))
+
+
+def test_cycling_palette_is_followed_briefly_then_held(owned_rom, plugin_package: str, tmp_path: Path) -> None:
+    assets = importlib.import_module(f"{plugin_package}.game.atlas")
+    labels = importlib.import_module(f"{plugin_package}.game.names")
+    sessions = importlib.import_module(f"{plugin_package}.game.map_session")
+    session = sessions.MapSession(assets.NativeAtlas(owned_rom, tmp_path, labels.NativeNames(owned_rom)))
+    palettes = [bytes((index,)) * 512 for index in range(8)]
+    seen = [session._settled_palette("floor-05-00", palette) for palette in palettes]
+    assert seen[:4] == palettes[:4] and all(palette == palettes[3] for palette in seen[4:])
+    assert session._settled_palette("floor-05-01", palettes[7]) == palettes[7]
+    session.close()
+
+
+def test_world_map_is_rendered_once_whatever_the_live_palette_does(owned_rom, plugin_package: str,
+                                                                 tmp_path: Path, monkeypatch) -> None:
+    assets = importlib.import_module(f"{plugin_package}.game.atlas")
+    labels = importlib.import_module(f"{plugin_package}.game.names")
+    sessions = importlib.import_module(f"{plugin_package}.game.map_session")
+    atlas = assets.NativeAtlas(owned_rom, tmp_path, labels.NativeNames(owned_rom))
+    atlas.catalog = ()
+    calls = []
+    paths = tuple(tmp_path / name for name in ("w.png", "w-base.png", "w-upper.png"))
+    monkeypatch.setattr(atlas, "world_views", lambda world, era: calls.append((world, era)) or paths)
+    session = sessions.MapSession(atlas)
+    ram = bytearray(0x20000)
+    ram[0x1948] = 1
+    ram[0xB6:0xBA] = (231).to_bytes(2, "little") + (117).to_bytes(2, "little")
+    try:
+        session.capture(bytes(ram), None, bytes(512))
+        session._current.result(timeout=20)
+        first = session.capture(bytes(ram), None, bytes(512))
+        assert first.position is not None and first.position.is_world
+        for step in range(1, 6):
+            ram[0x194C] = step
+            ram[0x2198] ^= 1
+            session.capture(bytes(ram), None, bytes((step,)) * 512)
+        assert session._current is None
+        assert calls.count((0, 1)) == 1
+    finally:
+        session.close()
+
+
+def test_state_specific_floor_images_are_pruned_to_a_small_history(owned_rom, plugin_package: str,
+                                                                  tmp_path: Path) -> None:
+    assets = importlib.import_module(f"{plugin_package}.game.atlas")
+    labels = importlib.import_module(f"{plugin_package}.game.names")
+    atlas = assets.NativeAtlas(owned_rom, tmp_path, labels.NativeNames(owned_rom))
+    default = atlas.floor(5, 0, 1)
+    for index in range(1, 9):
+        ram = bytearray(0x20000)
+        ram[0x2198] = index
+        atlas.floor(5, 0, 1, bytes(ram))
+    images = sorted(atlas.directory.glob("floor-05-00-era1-*.png"))
+    states = {path.stem[len("floor-05-00-era1-"):].removesuffix("-base").removesuffix("-upper") for path in images}
+    assert "static" in states and default.image.is_file()
+    assert len(states) <= 1 + max(assets.STATE_IMAGE_SETS, 4) and len(images) == 3 * len(states)
+    newest = bytearray(0x20000)
+    newest[0x2198] = 8
+    assert atlas.floor(5, 0, 1, bytes(newest)).image.is_file()

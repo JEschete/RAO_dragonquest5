@@ -91,12 +91,22 @@ def test_native_enemy_removal_keeps_sparse_physical_survivor_slots(owned_rom, pl
 def test_terminal_battle_keeps_party_without_stale_enemy_rows(owned_rom, plugin_package: str) -> None:
     module = importlib.import_module(f"{plugin_package}.game.battle")
     labels = importlib.import_module(f"{plugin_package}.game.names")
-    ram = _battle_ram()
+    state = importlib.import_module(f"{plugin_package}.game.state")
+    presenter = importlib.import_module(f"{plugin_package}.game.presentation")
+    helpers = importlib.import_module("test_party")
+    ram = helpers._snapshot()
+    ram[0x1944:0x1946] = module.COMBAT_UPDATE.to_bytes(2, "little")
     ram[0x1001:0x1005] = bytes((0xFF,)) * 4
     ram[0x1005] = ram[0x1012] = 0
     ram[0x7CA] = 0x80
+    ram[0x760:0x764] = bytes((0x9D, 0, 0x5B, 0))
     result = module.read_battle(owned_rom, bytes(ram), labels.NativeNames(owned_rom), scene_active=True)
     assert result.active and not result.enemies
+    party = state.read_party(bytes(ram), labels.NativeNames(owned_rom))
+    section = presenter.party_sections(party, result, bytes(ram))[0]
+    row = section.columns[0].rows[0]
+    assert f"Attack {party.companions[0].attack} | Defense {party.companions[0].defense}" in row.tooltip
+    assert "Attack 157 | Defense 91" not in row.tooltip
 
 
 @pytest.mark.parametrize("address, value", [(0x1012, 2), (0x1005, 0), (0x7C0, 255), (0x7C2, 8)])
@@ -192,12 +202,16 @@ def test_temporary_party_battle_statuses_clear_with_scene(owned_rom, plugin_pack
     battle_module = importlib.import_module(f"{plugin_package}.game.battle")
     helpers = importlib.import_module("test_party")
     ram = helpers._snapshot()
+    combat = _battle_ram()
+    ram[0x1001:0x1006] = combat[0x1001:0x1006]
+    ram[0x1012] = combat[0x1012]
+    ram[0x7C0:0x7D0] = combat[0x7C0:0x7D0]
     names = labels.NativeNames(owned_rom)
     party = state.read_party(bytes(ram), names)
     ram[0x765] = 0xB8
     ram[0x766] = 0xC0
     ram[0x760:0x765] = bytes((90, 0, 70, 0, 40))
-    active = battle_module.Battle(True, False, 0, ())
+    active = battle_module.read_battle(owned_rom, bytes(ram), names, scene_active=True)
     row = presenter.party_sections(party, active, bytes(ram))[0].columns[0].rows[0]
     assert "Attack 90 | Defense 70" in row.tooltip
     assert "Agility 40" in row.tooltip

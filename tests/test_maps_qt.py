@@ -38,15 +38,20 @@ def test_native_map_player_geometry_and_single_pickups(qtbot, owned_rom, plugin_
     assert view.player_scene_positions == ((52.0, 60.0),)
     assert len(view.visible_waypoints()) == 2
     view.set_zoom(4)
-    view.set_image_view("Combined")
-    assert view.image_view == "Combined"
+    # The view that opens by default is the game's own two-layer picture.
+    assert view.image_view == "Full"
     rendered = view._pixmap.toImage().convertToFormat(QImage.Format.Format_RGBA8888)
     with Image.open(floor.image) as expected:
+        assert bytes(rendered.constBits()) == expected.convert("RGBA").tobytes()
+    view.set_image_view("Ground")
+    assert view.image_view == "Ground"
+    rendered = view._pixmap.toImage().convertToFormat(QImage.Format.Format_RGBA8888)
+    with Image.open(floor.base_image) as expected:
         assert bytes(rendered.constBits()) == expected.convert("RGBA").tobytes()
     assert view.player_scene_positions == ((52.0, 60.0),)
     assert len(view.visible_waypoints()) == 2
     view.update_document(document)
-    assert view.image_view == "Combined"
+    assert view.image_view == "Ground"
     view.set_image_view("Upper")
     assert view.image_view == "Upper"
     rendered = view._pixmap.toImage().convertToFormat(QImage.Format.Format_RGBA8888)
@@ -54,7 +59,9 @@ def test_native_map_player_geometry_and_single_pickups(qtbot, owned_rom, plugin_
         assert bytes(rendered.constBits()) == expected.convert("RGBA").tobytes()
     assert view.image_item_count == 1
     view.set_image_view("Cutaway")
-    assert view.image_view == "Cutaway"
+    assert view.image_view == "Upper"
+    view.set_image_view("Full")
+    assert view.image_view == "Full"
     sprites = importlib.import_module(f"{plugin_package}.scripts.dq5_sprites")
     sprite_path = tmp_path / "native-actor.png"
     sprite = sprites.render_sprite(sprites.decode_sprite(owned_rom, 0), floor.decoded.palette)

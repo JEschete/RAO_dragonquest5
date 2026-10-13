@@ -58,6 +58,7 @@ class PartyState:
     coins: int
     medals: int
     tactics: int
+    deposit: int = 0
 
 
 def _record(snapshot: bytes, start: int, size: int, slot: int, role: str,
@@ -134,6 +135,8 @@ def read_party(snapshot: bytes, names: NativeNames) -> PartyState:
                 deposited.append(member)
     gold = int.from_bytes(snapshot[0x2019:0x201C], "little")
     coins = int.from_bytes(snapshot[0x203C:0x203F], "little")
-    if gold > 99999 or coins > 9999999:
+    banked = int.from_bytes(snapshot[0x203A:0x203C], "little")
+    if gold > 99999 or coins > 9999999 or banked > 1000:
         raise ValueError("Native currency balances are not initialized")
-    return PartyState(tuple(companions), tuple(deposited), gold, coins, snapshot[0x203F], snapshot[0x2034])
+    return PartyState(tuple(companions), tuple(deposited), gold, coins, snapshot[0x203F], snapshot[0x2034],
+                      banked * 1000)

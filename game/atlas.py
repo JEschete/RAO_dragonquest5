@@ -16,11 +16,15 @@ from ..scripts.dq5_maps import _atomic_destination
 from ..scripts.dq5_render import render_floor, render_world
 from ..scripts.dq5_rom import RomImage
 from ..scripts.dq5_sprites import DecodedSprite, decode_sprite, render_sprite
-from ..scripts.dq5_treasures import TreasureLocation, chest_trap_species, reward_available, scripted_outcome, treasures_for_floor
+from ..scripts.dq5_treasures import (SCRIPTED_EFFECTS, TreasureLocation, chest_trap_species, reward_available,
+                                     scripted_done, scripted_outcome, treasures_for_floor)
+from .hazards import HazardMap, floor_hazards
 from .names import NativeNames
 
 
-ATLAS_VERSION = 3
+ATLAS_VERSION = 4
+# State-specific renders kept on disk per floor and era, newest first; the default-state set is always kept.
+STATE_IMAGE_SETS = 3
 
 
 @dataclass(frozen=True, slots=True)
@@ -30,6 +34,7 @@ class FloorAssets:
     treasures: tuple[TreasureLocation, ...]
     base_image: Path
     upper_image: Path
+    hazards: HazardMap = HazardMap((), ())
 
 
 def floor_key(area: int, floor: int) -> str:
@@ -39,12 +44,25 @@ def floor_key(area: int, floor: int) -> str:
 
 
 def map_state_key(snapshot: bytes | None) -> str:
+    """Identity of what the floor loader reads: the era and the saved story, door and pickup bits.
+
+    The neighbouring bytes at $194B-$194F count steps and music; hashing them would redraw on every step.
+    """
     if snapshot is None:
         return "static"
     if len(snapshot) != 0x20000:
         raise ValueError("Native map state requires a 128-KiB WRAM-shaped buffer")
-    inputs = snapshot[0x1948:0x1950] + snapshot[0x2190:0x2250]
+    inputs = snapshot[0x1948:0x1949] + snapshot[0x2190:0x2250]
     return hashlib.sha256(inputs).hexdigest()[:16]
+
+
+def stable_cells(cells: bytes) -> bytes:
+    """Live floor cells without byte 0, which only tracks which actor currently stands on the cell."""
+    if len(cells) % 8:
+        raise ValueError("Native floor cells are eight bytes each")
+    stable = bytearray(cells)
+    stable[0::8] = bytes(len(cells) // 8)
+    return bytes(stable)
 
 
 class NativeAtlas:
@@ -69,7 +87,7 @@ class NativeAtlas:
                 raise ValueError("Live native palette requires 256 two-byte colors")
             state += "-" + hashlib.sha256(live_palette).hexdigest()[:16]
         if live_cells is not None:
-            state += "-" + hashlib.sha256(live_cells).hexdigest()[:16]
+            state += "-" + hashlib.sha256(stable_cells(live_cells)).hexdigest()[:16]
         identity = (area, floor, era, state)
         with self._lock:
             cached = self._cache.get(identity)
@@ -93,26 +111,44 @@ class NativeAtlas:
             self._write_image(path, lambda: render_floor(decoded), dimensions)
             self._write_image(base_path, lambda: render_floor(decoded, layer="base"), dimensions)
             self._write_image(upper_path, lambda: render_floor(decoded, layer="upper"), dimensions)
-            result = FloorAssets(decoded, path, treasures, base_path, upper_path)
+            result = FloorAssets(decoded, path, treasures, base_path, upper_path, floor_hazards(self.rom, decoded))
             self._cache[identity] = result
             while len(self._cache) > 4:
                 self._cache.popitem(last=False)
+            if identity[3] != "static":
+                self._prune(f"{floor_key(area, floor)}-era{era}-", identity[3])
             return result
 
-    def world(self, world: int, era: int, snapshot: bytes | None = None,
-              live_palette: bytes | None = None) -> Path:
-        return self.world_views(world, era, snapshot, live_palette)[0]
+    def _prune(self, prefix: str, current: str) -> None:
+        """Bound disk use: drop this floor's oldest state-specific image sets beyond a small history."""
+        states: dict[str, list[Path]] = {}
+        for candidate in self.directory.glob(prefix + "*.png"):
+            state = candidate.stem[len(prefix):].removesuffix("-base").removesuffix("-upper")
+            if state != "static":
+                states.setdefault(state, []).append(candidate)
+        kept = {identity[3] for identity in self._cache} | {current}
+        newest = lambda state: max((path.stat().st_mtime for path in states[state] if path.exists()), default=0.0)
+        for state in sorted(states, key=newest, reverse=True)[STATE_IMAGE_SETS:]:
+            if state in kept:
+                continue
+            for stale in states[state]:
+                try:
+                    stale.unlink()
+                except OSError:
+                    pass
 
-    def world_views(self, world: int, era: int, snapshot: bytes | None = None,
-                    live_palette: bytes | None = None) -> tuple[Path, Path, Path]:
+    def world(self, world: int, era: int) -> Path:
+        return self.world_views(world, era)[0]
+
+    def world_views(self, world: int, era: int) -> tuple[Path, Path, Path]:
+        """World images use the cartridge's own palette for the era, never the live one.
+
+        The overworld palette is rewritten every few steps by the day-night cycle; following it
+        would redraw sixteen million pixels per layer almost continuously.
+        """
         if world not in (0, 1, 2) or era not in (0, 1, 2):
             raise ValueError("Invalid native world or era")
-        state = map_state_key(snapshot)
-        if live_palette is not None:
-            if len(live_palette) != 512:
-                raise ValueError("Live native palette requires 256 two-byte colors")
-            state += "-" + hashlib.sha256(live_palette).hexdigest()[:16]
-        path = self.directory / f"world-{world}-era{era}-{state}.png"
+        path = self.directory / f"world-{world}-era{era}-static.png"
         paths = (path, path.with_stem(path.stem + "-base"), path.with_stem(path.stem + "-upper"))
         with self._lock:
             decoded = None
@@ -120,9 +156,7 @@ class NativeAtlas:
             def render(layer):
                 nonlocal decoded
                 if decoded is None:
-                    decoded = decode_world(self.rom, world, era=era, ram_snapshot=snapshot, timeout=20)
-                    if live_palette is not None:
-                        decoded = replace(decoded, palette=live_palette)
+                    decoded = decode_world(self.rom, world, era=era, timeout=20)
                 return render_world(decoded, layer=layer)
 
             for destination, layer in zip(paths, ("combined", "base", "upper"), strict=True):
@@ -183,24 +217,42 @@ class NativeAtlas:
                 species = chest_trap_species(self.rom, reward.reward_code) if reward.kind == "chest" else ()
                 title = " / ".join(self.names.get(4, identity) for identity in species) if species else "Trap"
             elif reward.reward_type == "event":
-                title = f"{scripted_outcome(self.rom, reward.reward_code)} (${reward.reward_code:04X})"
+                title = scripted_outcome(self.rom, reward.reward_code)
             else:
                 continue
-            collected = (bool(snapshot[reward.flag_address - 0x7E0000] & reward.flag_mask)
-                         if snapshot is not None else None)
-            kind = "collectibles" if reward.reward_type in ("item", "gold") else reward.reward_type
             detail = "Chest" if reward.kind == "chest" else "Search"
             marker = "chest" if reward.kind == "chest" else "search"
-            if collected:
-                detail += " | Collected"
-            elif available is False:
-                detail += " | Not currently available"
-                kind, marker = "conditional", "search-conditional"
-            elif snapshot is None:
-                detail += " | Collection state unknown"
+            kind = "collectibles" if reward.reward_type in ("item", "gold") else reward.reward_type
+            if reward.context is not None and reward.kind == "search":
+                detail += f" from level {reward.context.bit_length()}"
+            if reward.reward_type == "event":
+                # Scripted searches keep their own native bit; the list flag is not a pickup record.
+                done = scripted_done(reward.reward_code, snapshot)
+                collected = done if reward.reward_code in (0xD000, 0xD007) else (False if snapshot is not None else None)
+                detail += f" | {SCRIPTED_EFFECTS[reward.reward_code]}"
+                if done:
+                    detail += " | Done" if collected else " | Revealed"
+                elif available is False:
+                    detail += " | Not currently available"
+                    kind, marker = "conditional", "search-conditional"
+                elif snapshot is None:
+                    detail += " | State unknown"
+                elif done is False:
+                    detail += " | Not done"
+                detail += f" | Native event ${reward.reward_code:04X}"
             else:
-                detail += " | Uncollected"
-            detail += f" | Saved flag ${reward.flag_address:06X} / ${reward.flag_mask:02X}"
+                collected = (bool(snapshot[reward.flag_address - 0x7E0000] & reward.flag_mask)
+                             if snapshot is not None else None)
+                if collected:
+                    detail += " | Collected"
+                elif available is False:
+                    detail += " | Not currently available"
+                    kind, marker = "conditional", "search-conditional"
+                elif snapshot is None:
+                    detail += " | Collection state unknown"
+                else:
+                    detail += " | Uncollected"
+                detail += f" | Saved flag ${reward.flag_address:06X} / ${reward.flag_mask:02X}"
             waypoints.append(MapWaypoint(reward.x, reward.y, title,
                                          detail=detail, marker=marker, kind=kind, completed=collected))
         return MapOverlay(floor_key(header.area_id, header.floor_id), tuple(waypoints))

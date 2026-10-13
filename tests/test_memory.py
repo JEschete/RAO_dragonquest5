@@ -29,6 +29,38 @@ def test_capture_is_bounded_and_tracks_actual_regions(plugin_package: str) -> No
     assert not snapshot.has_range(0xC000, 8)
 
 
+def test_capture_with_retry_recovers_once_from_a_coherence_race(plugin_package: str,
+                                                                monkeypatch: pytest.MonkeyPatch) -> None:
+    module = importlib.import_module(f"{plugin_package}.game.memory")
+    capture = module.capture
+    attempts = []
+
+    def flaky(memory, *, live_map: bool = False):
+        attempts.append(None)
+        if len(attempts) == 1:
+            raise ValueError("DQ5 state changed while the snapshot was being read")
+        return capture(memory, live_map=live_map)
+
+    monkeypatch.setattr(module, "capture", flaky)
+    snapshot = module.capture_with_retry(Reader())
+    assert len(snapshot.ram) == 0x20000 and len(attempts) == 2
+
+
+def test_capture_with_retry_does_not_hide_persistent_or_unrelated_failures(plugin_package: str,
+                                                                           monkeypatch: pytest.MonkeyPatch) -> None:
+    module = importlib.import_module(f"{plugin_package}.game.memory")
+    attempts = []
+
+    def failing(memory, *, live_map: bool = False):
+        attempts.append(None)
+        raise ValueError("invalid native floor dimensions")
+
+    monkeypatch.setattr(module, "capture", failing)
+    with pytest.raises(ValueError, match="invalid native floor dimensions"):
+        module.capture_with_retry(Reader())
+    assert len(attempts) == 1
+
+
 @pytest.mark.parametrize("options", [{"truncated": True}, {"changing": True}])
 def test_incomplete_or_mixed_capture_is_rejected(plugin_package: str, options: dict[str, bool]) -> None:
     module = importlib.import_module(f"{plugin_package}.game.memory")
