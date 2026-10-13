@@ -6,8 +6,8 @@ from retroarch_overlay.models import PanelAction, PanelChip, PanelRow, PanelSect
 
 from ..scripts.dq5_rom import RomImage
 from .battle import Battle
-from .items import ITEM_COUNT, item_profile
-from .monsters import MonsterProfile, drop_denominator, monster_catalog
+from .items import ITEM_COUNT, battle_use_command, item_profile, mp_recovery
+from .monsters import MonsterProfile, damage_resistance_scale, drop_denominator, monster_catalog
 from .names import COMMAND_NAMES, ITEM_NAMES, MONSTER_NAMES, NativeNames
 
 
@@ -21,7 +21,7 @@ class Catalogs:
         try:
             return self.names.display(COMMAND_NAMES, identity, self.hero_name)
         except ValueError as error:
-            if "leaves table" not in str(error):
+            if "leaves its table" not in str(error):
                 raise
             return f"Native action ${identity:02X}"
 
@@ -33,14 +33,17 @@ class Catalogs:
             drop += f" (1/{denominator:,})"
         mp = "Infinite" if profile.infinite_mp else str(profile.mp)
         resistance = " | ".join(f"{label} {rank}" for label, rank in profile.resistances)
+        damage = " | ".join(f"{label} {damage_resistance_scale(self.rom, rank) / 256:.0%}"
+                    for label, rank in profile.resistances[:6])
         commands = " / ".join(self._action_label(identity) for identity in profile.commands)
         return PanelRow(name,
                         detail=f"HP {profile.hp:,} | MP {mp}\n"
                                f"Attack {profile.attack} | Defense {profile.defense} | Agility {profile.agility}\n"
                                f"XP {profile.experience:,} | Gold {profile.gold:,}\nDrop: {drop}\n"
-                               f"Action slots: {commands}",
+                               f"Action slots: {commands}\nSpell damage: {damage}",
                            tooltip=f"Resistance grades: {resistance}\n"
                                 "Action slots preserve the native order; conditional selection is not an equal probability roll\n"
+                                "Spell damage uses the normal native table; hero/encounter level advantage can select another table\n"
                                 "Drop odds apply to the game's selected eligible enemy, not each defeated enemy")
 
     @cached_property
@@ -53,13 +56,21 @@ class Catalogs:
         rows = []
         for identity in range(ITEM_COUNT):
             profile = item_profile(self.rom, identity)
+            use_command = battle_use_command(self.rom, identity)
+            use_detail = (f"\nBattle use: {self._action_label(use_command)}" if use_command is not None else "")
+            recovery = mp_recovery(self.rom, identity)
+            if recovery is not None:
+                minimum, maximum, break_denominator = recovery
+                use_detail += f"\nMP restoration {minimum}-{maximum}, capped at missing MP"
+                if break_denominator is not None:
+                    use_detail += f" | Break check 1/{break_denominator} after use"
             flags = tuple(label for present, label in (
                 (profile.cursed, "Cursed"), (profile.consumable, "Consumable"),
                 (not profile.sellable, "Cannot sell"), (not profile.discardable, "Cannot discard"),
             ) if present)
             rows.append(PanelRow(self.names.get(ITEM_NAMES, identity),
                                  detail=f"{profile.kind_name} | List price {profile.price:,} gold"
-                                        + (f"\nPower {profile.power}" if profile.kind != 4 else ""),
+                                        + (f"\nPower {profile.power}" if profile.kind != 4 else "") + use_detail,
                                  chips=tuple(PanelChip(label, "#9B3945" if label == "Cursed" else "#526469")
                                              for label in flags)))
         return tuple(sorted(rows, key=lambda row: row.text.casefold()))

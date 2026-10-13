@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib
 import hashlib
+import shutil
 from pathlib import Path
 import tomllib
 import zlib
@@ -53,6 +54,52 @@ def test_missing_rom_has_explicit_factory_failure() -> None:
         module.PLUGIN.create(GameContext(repository_root=ROOT))
 
 
+def test_runtime_refuses_the_unpatched_cartridge_even_with_a_valid_source_rom() -> None:
+    source = ROOT / "Resources/2148-DragonQuest5-English/Dragon Quest V - Tenkuu no Hanayome (Japan).sfc"
+    if not source.is_file():
+        pytest.skip("The optional local patch source is unavailable")
+    module = _load_plugin_module("org.jeschete.retroarch-overlay.dragonquest5", ROOT, Path("plugin.py"))
+    with pytest.raises(ValueError, match="supported DeJap"):
+        module.PLUGIN.create(GameContext(settings={"rom_path": source}, repository_root=ROOT))
+    adapter = _adapter()
+    try:
+        assert not adapter.supports(RetroArchStatus("PLAYING", "super_nes", "Dragon Quest V"),
+                                    "d8e95e744e66e7ec30d9591f71dafd0a")
+    finally:
+        adapter.deactivate()
+
+
+def test_clean_authored_checkout_loads_without_local_research_or_generated_assets(tmp_path: Path) -> None:
+    original = _adapter()
+    source = ROOT / "Resources/2148-DragonQuest5-English/Dragon Quest V - Tenkuu no Hanayome (Japan) (En) (v2.01F) (DeJap).sfc"
+    checkout = tmp_path / "RAO_dragonquest5"
+    shutil.copytree(ROOT, checkout, ignore=shutil.ignore_patterns(
+        ".git", "Resources", "Guide", "native-maps", "__pycache__", ".pytest_cache"))
+    assert not (checkout / "Resources").exists() and not (checkout / "native-maps").exists()
+    module = _load_plugin_module("org.jeschete.retroarch-overlay.dragonquest5", checkout, Path("plugin.py"))
+    adapter = module.PLUGIN.create(GameContext(settings={"rom_path": source}, repository_root=checkout,
+                                              state_directory=tmp_path / "state"))
+    helpers = importlib.import_module("test_party")
+    ram = bytes(helpers._snapshot())
+
+    class Reader:
+        def read_memory(self, address: int, size: int) -> bytes:
+            start = address - 0x7E0000
+            return ram[start:start + size]
+
+    try:
+        assert adapter.__class__.__module__ != original.__class__.__module__
+        adapter.activate(("super_nes", "Dragon Quest V", f"{zlib.crc32(adapter.rom.data):08x}"))
+        snapshot = adapter.snapshot(Reader())
+        assert any(section.key == "party-active" for section in snapshot.sections)
+        assert any(section.key == "item-catalog" for section in snapshot.sections)
+        assert not any(section.key in ("bestiary", "encounters", "recruitment") for section in snapshot.sections)
+        assert adapter.names.get(5, 0) == "Cypress Stick"
+    finally:
+        adapter.deactivate()
+        original.deactivate()
+
+
 def test_party_panel_is_live_and_declined_features_have_no_controls(plugin_package: str) -> None:
     def declined_achievement_provider(game_id: int):
         raise AssertionError("Declined achievement integration must not call the provider")
@@ -69,14 +116,15 @@ def test_party_panel_is_live_and_declined_features_have_no_controls(plugin_packa
     adapter.activate(("Snes9x", "Dragon Quest V", f"{zlib.crc32(adapter.rom.data):08x}"))
     snapshot = adapter.snapshot(Reader())
     assert [section.key for section in snapshot.sections] == [
-        "party-active", "party-wagon", "balances", "equipment", "medals", "casino-prizes", "recruitment",
-        "bestiary", "item-catalog", "encounters",
+        "party-active", "party-wagon", "balances", "equipment", "medals", "item-catalog",
     ]
     active = snapshot.sections[0]
     assert "Jude" in active.rows[1].text
     assert active.rows[1].meters[0].value == 100
-    assert all(not any(declined in section.key for declined in ("growth", "journey", "guide", "achievement"))
+    assert all(not any(declined in section.key for declined in ("growth", "journey", "guide", "achievement",
+                                                               "bestiary", "encounters", "recruitment"))
                for section in snapshot.sections)
+    assert all(not any(word in section.key for word in ("casino", "arena")) for section in snapshot.sections)
     adapter.deactivate()
     assert adapter.snapshot(Reader()).sections[0].key == "waiting"
 

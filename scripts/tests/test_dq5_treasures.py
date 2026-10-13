@@ -118,3 +118,17 @@ def test_native_hidden_item_story_suppression(area: int, item: int, mask: int) -
     assert reward_available(record, bytes(ram)) is True
     ram[0x21E2] = mask
     assert reward_available(record, bytes(ram)) is False
+
+
+@pytest.mark.parametrize("item, address, mask, consumer", [(0xD4, 0x21D6, 8, 0x12FD0A),
+                                                         (0x60, 0x219F, 0x80, 0x12FD15)])
+def test_native_story_pickup_requires_its_actual_enable_flag(owned_rom, item: int, address: int,
+                                                            mask: int, consumer: int) -> None:
+    record = TreasureLocation("story", 0, 0, 0, 0, item, 0x7E2190, 0x80, 0x1EF435, 0)
+    assert owned_rom.read(consumer, 4) == bytes((0, 0x0B, mask, address - 0x2190))
+    ram = bytearray(0x20000)
+    assert reward_available(record, bytes(ram)) is False
+    ram[address] = mask
+    assert reward_available(record, bytes(ram)) is True
+    other_table = TreasureLocation("story", 0, 0, 0, 0, item, 0x7E2190, 0x80, 0x1EF4DF, 0)
+    assert reward_available(other_table, bytes(0x20000)) is True

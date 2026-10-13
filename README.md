@@ -39,12 +39,23 @@ Current-floor backgrounds can use coherently captured live cell buffers, with
 ROM-derived graphics and separate hash-keyed images. Native pickup identity is
 retained when its chest tile changes. Local/world NPC service markers and
 ordinary/special exit directories are connected; scripted access overrides,
-native sprite graphics, and animation timing remain explicit open work.
+composite vehicle art, live sprite poses, and animation timing remain open work.
+Native current-floor actor bitmap markers are now connected; live pose choice
+and full large-sprite fidelity remain open. Cutaway, Combined, and Upper map
+views use actual native layers, preserve overlays/tracking, and have exact
+displayed-pixel checks. Coherently captured native palettes drive current map
+and actor colors rather than replacing the palette with an assumed era default.
 
 Verified hidden-item story-bit suppression is applied to pickup markers. The
 parked Floating Castle marker disappears while ridden. Bestiary drop odds use
 the native denominator table for the game's selected eligible enemy, not a
 separate roll for every defeated enemy.
+Native action slots and encounter coefficients are shown separately from
+conditional odds. Recruiting unlock, caretaker capacity, current battle
+wagon/hero-level/last-defeat gates, and the exact inventory override qualify
+recruitment. Verified spell-backed item-use effects qualify equipment comparisons.
+Slime Race shows its committed five-runner stakes and racing phase only while
+the native race controller is initialized; no winner probability is invented.
 
 Enable RetroArch Network Commands and load a save before live use. Reads are
 bounded to needed WRAM regions and control bytes are rechecked to reject mixed

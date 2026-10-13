@@ -45,3 +45,19 @@ def test_drop_denominators_use_the_native_selected_enemy_table(owned_rom, plugin
     values = {profile.drop_rank: module.drop_denominator(owned_rom, profile)
               for profile in module.monster_catalog(owned_rom) if profile.drop_item is not None}
     assert values == {0: 1, 1: 8, 2: 16, 3: 32, 4: 64, 5: 128, 6: 256, 7: 4096}
+
+
+def test_damage_resistance_scale_matches_native_fixed_point_consumer(owned_rom, plugin_package: str) -> None:
+    module = importlib.import_module(f"{plugin_package}.game.monsters")
+    native = importlib.import_module(f"{plugin_package}.scripts.dq5_native")
+    assert owned_rom.read(0x20ABC2, 4) == bytes.fromhex("BF558027")
+    assert owned_rom.read(0x20ABBA, 4) == bytes.fromhex("BF598027")
+    for rank in range(4):
+        machine = native.NativeMachine(owned_rom, max_steps=20000, timeout=0.25)
+        machine.cpu.p = 0x34
+        machine.cpu.dbr = 0x20
+        machine.bus[0x46] = rank
+        machine.bus.write_word(0x71, 256)
+        machine.call(0x20ABC0)
+        assert machine.bus.word(0x71) == module.damage_resistance_scale(owned_rom, rank)
+    assert module.damage_resistance_scale(owned_rom, 3) == 0

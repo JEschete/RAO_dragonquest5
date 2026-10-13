@@ -1,5 +1,26 @@
 # Approved DQ5 Plugin Requirements
 
+## Scope Revision: 2026-10-12
+
+The user's latest instruction supersedes the original delivery order below:
+
+1. Finish treasure and medals.
+2. Finish navigation.
+3. Finish English labels.
+4. Finish shops and the upgrade recommender.
+5. Finish map fidelity.
+
+Do not start the next feature until the current feature is implemented and
+verified against RetroArch memory and expected behavior. Casino was subsequently
+dropped by the user. Bestiary, encounters, and recruitment (original features
+13 and 14) are also dropped. Further NPC placement
+and animation work is dropped; existing markers may remain. Keep native monster
+data needed by the battle dashboard, and the item catalog needed by
+the shop recommender. No unrelated reverse-engineering or repeated failed
+casino-emulation experiments are part of this delivery order.
+
+## Original Approval
+
 Approved 2026-10-12. This is the implementation scope, not a completion claim.
 Features 5 and 15 were explicitly declined; feature 18 was subsequently declined
 on 2026-10-12. The remaining 15 features remain

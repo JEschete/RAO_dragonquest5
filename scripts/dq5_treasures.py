@@ -16,6 +16,13 @@ CHEST_REWARDS = 0x1EEE4E
 SEARCH_REWARDS = 0x1EF08B
 HIDDEN_REWARDS = 0x1FF5CB
 CHEST_TYPES = 0x2AFF3E
+SCRIPTED_OUTCOMES = (
+    (0x12F51F, "Story interaction"), (0x12F534, "Child-era passage"),
+    (0x12F574, "Child-era passage"), (0x12F58C, "Story interaction"),
+    (0x12F5CB, "Inscription"), (0x12F5D5, "Story interaction"),
+    (0x12F619, "Story interaction"), (0x12F651, "Story interaction"),
+    (0x12F67F, "Story interaction"), (0x12F6C2, "Story transition"),
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -112,7 +119,47 @@ def reward_available(reward: TreasureLocation, snapshot: bytes | None) -> bool |
             return not bool(snapshot[0x21E2] & 0x10)
         if reward.item_id == 0xB0 and reward.area_id == 0x1F:
             return not bool(snapshot[0x21E2] & 4)
+    if reward.kind == "story" and 0x1EF435 <= reward.source_address < 0x1EF4BF:
+        if reward.item_id == 0xD4:
+            return bool(snapshot[0x21D6] & 8)
+        if reward.item_id == 0x60:
+            return bool(snapshot[0x219F] & 0x80)
+    if reward.reward_code in (0xD001, 0xD002):
+        return snapshot[0x1948] == 0
     return True
+
+
+def scripted_outcome(rom: RomImage, reward_code: int) -> str:
+    index = reward_code - 0xD000
+    if not 0 <= index < len(SCRIPTED_OUTCOMES):
+        raise ValueError("Scripted reward leaves the verified native dispatch chain")
+    address, description = SCRIPTED_OUTCOMES[index]
+    if rom.read(address, 3) != bytes((0xC9,)) + reward_code.to_bytes(2, "little"):
+        raise ValueError("Scripted reward does not match its verified native comparison")
+    return description
+
+
+@lru_cache(maxsize=6)
+def chest_trap_species(rom: RomImage, reward_code: int) -> tuple[int, ...]:
+    if reward_code not in (0xFFFD, 0xFFFE):
+        return ()
+    event_id = 0x0D if reward_code == 0xFFFD else 0x0C
+    identities = rom.read(0x23D757 + event_id * 13 + 1, 4)
+    if any(identity >= 235 and identity != 0xFF for identity in identities):
+        raise ValueError("Native chest trap event has an invalid monster identity")
+    return tuple(identity for identity in identities if identity != 0xFF)
+
+
+@lru_cache(maxsize=3)
+def medal_pickup_flags(rom: RomImage) -> tuple[tuple[int, int], ...]:
+    flags = {(record.flag_address, record.flag_mask)
+             for record in (*search_records(rom), *hidden_records(rom), *story_records(rom))
+             if record.item_id == 0xB5}
+    for first, count in chest_groups(rom).values():
+        for identity in range(first, first + count):
+            if rom.word(CHEST_REWARDS + identity * 2) == 0xB5:
+                flags.add((0x7E2210 + identity // 8, 0x80 >> (identity & 7)))
+    return tuple(sorted(flags))
 
 
 def _flagged_records(rom: RomImage, start: int, kind: str, flag_base: int,

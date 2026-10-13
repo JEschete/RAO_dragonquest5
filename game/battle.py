@@ -77,6 +77,8 @@ def read_battle(rom: RomImage, snapshot: bytes, names: NativeNames, *, scene_act
         statuses = tuple(label for offset, mask, label in (
             (10, 0x20, "Paralyzed"), (10, 0x10, "Poisoned"), (11, 0x80, "Sleeping"),
             (11, 0x20, "Confused"), (11, 0x10, "Silenced"), (11, 0x08, "Dazzled"),
+            (11, 0x02, "Severe poison"), (12, 0x80, "Attack boosted"),
+            (12, 0x40, "Spell reflection"),
         ) if data[offset] & mask)
         enemies.append(Enemy(slot, data[1] & 3, names.display(4, data[0], names.companion(0, 0, snapshot))
                      if b"\x7A" in names.encoded(4, data[0]) else names.get(4, data[0]), hp, maximum,

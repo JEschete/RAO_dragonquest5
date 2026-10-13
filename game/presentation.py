@@ -5,6 +5,8 @@ from retroarch_overlay.models import PanelAction, PanelChip, PanelColumn, PanelM
 
 from .battle import Battle, Enemy
 from .combat_advice import CombatAdvice
+from .monsters import damage_resistance_scale
+from .names import NativeNames
 from .state import Companion, PartyState
 
 
@@ -42,6 +44,8 @@ def _member_row(member: Companion) -> PanelRow:
         meters.append(PanelMeter("XP / next total", member.experience, member.next_experience, XP_COLOR))
     statistics = (f"Strength {member.strength} | Agility {member.agility} | Resilience {member.resilience}\n"
                   f"Wisdom {member.wisdom} | Luck {member.luck}\nCurrent XP {member.experience:,}")
+    if member.attack is not None and member.defense is not None:
+        statistics = f"Attack {member.attack} | Defense {member.defense}\n" + statistics
     return PanelRow(f"{member.name}  Lv {member.level}",
                     tooltip=statistics, detail=member.role.title(),
                     meters=tuple(meters),
@@ -52,6 +56,8 @@ def _member_detail(member: Companion) -> PanelAction:
     rows = [PanelRow(f"Strength {member.strength} | Agility {member.agility} | Resilience {member.resilience}"),
             PanelRow(f"Wisdom {member.wisdom} | Luck {member.luck}"),
             PanelRow(f"Current XP {member.experience:,}")]
+    if member.attack is not None and member.defense is not None:
+        rows.insert(0, PanelRow(f"Attack {member.attack} | Defense {member.defense}"))
     if not member.direct_commands:
         rows.append(PanelRow("Automatic commands", emphasis="muted"))
     rows.extend(PanelRow(item.name, detail="Equipped" if item.equipped else "Carried") for item in member.inventory)
@@ -76,12 +82,38 @@ def _enemy_detail(enemy: Enemy) -> PanelAction:
     return PanelAction(enemy.name, enemy.name, rows, compact=True, key=f"enemy-{enemy.slot}")
 
 
+def resistance_advice(names: NativeNames, party: PartyState, battle: Battle, snapshot: bytes) -> PanelSection | None:
+    if not battle.active or not battle.enemies:
+        return None
+    hero = next((member for member in party.companions if not member.monster and member.identifier == 0), None)
+    if hero is None:
+        return None
+    rows = []
+    for enemy in battle.enemies:
+        scales = tuple((label, damage_resistance_scale(names.rom, rank, hero_level=hero.level,
+                                                       encounter_level=snapshot[0x100F]))
+                       for label, rank in enemy.profile.resistances[:6])
+        detail = " | ".join(f"{label} {scale / 256:.0%}" for label, scale in scales)
+        immune = ", ".join(label for label, scale in scales if scale == 0)
+        rows.append(PanelRow(enemy.name, detail=detail,
+                             tooltip="Native spell-damage scale, not a status-effect hit chance"
+                                     + (f"\nImmune: {immune}" if immune else "")))
+    return PanelSection("Spell Resistances", tuple(rows), role="party", key="battle-resistances", priority=26)
+
+
 def party_sections(state: PartyState, battle: Battle | None = None, snapshot: bytes | None = None) -> tuple[PanelSection, ...]:
     active = tuple(member for member in state.companions if member.role == "active")
     if battle is not None and battle.active and snapshot is not None:
-        active = tuple(replace(member, statuses=tuple(dict.fromkeys((*member.statuses, *(
+        active = tuple(replace(member,
+            attack=int.from_bytes(snapshot[0x760 + ordinal * 12:0x762 + ordinal * 12], "little"),
+            defense=int.from_bytes(snapshot[0x762 + ordinal * 12:0x764 + ordinal * 12], "little"),
+            agility=snapshot[0x764 + ordinal * 12],
+            statuses=tuple(dict.fromkeys((*member.statuses, *(
             label for mask, label in ((0x80, "Sleeping"), (0x20, "Confused"), (0x10, "Silenced"), (0x08, "Dazzled"))
             if snapshot[0x765 + ordinal * 12] & mask
+        ), *(
+            label for mask, label in ((0x80, "Attack boosted"), (0x40, "Spell reflection"))
+            if snapshot[0x766 + ordinal * 12] & mask
         ))))) for ordinal, member in enumerate(active))
     wagon = tuple(member for member in state.companions if member.role == "wagon")
     sections = [PanelSection("Party", tuple(_member_row(member) for member in active), role="party",

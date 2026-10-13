@@ -7,12 +7,12 @@ from pathlib import Path
 from threading import Event, RLock
 from time import monotonic
 
-from retroarch_overlay.models import MapDocument, MapLayer, MapOverlay, MapPosition
+from retroarch_overlay.models import MapDocument, MapLayer, MapOverlay, MapPosition, PanelAction, PanelRow, PanelSection
 
 from .atlas import FloorAssets, NativeAtlas, floor_key, map_state_key
 from .entities import entity_overlay, read_entities
 from .location import Location, read_location
-from .navigation import floor_exits, world_entrances
+from .navigation import floor_exits, movement_features, world_entrances
 
 
 @dataclass(frozen=True, slots=True)
@@ -57,6 +57,30 @@ class MapSession:
                      for reward in rewards if reward.item_id == 0xB5}
         return sum(bool(snapshot[address - 0x7E0000] & mask) for address, mask in flags), len(flags)
 
+    def treasures(self, snapshot: bytes) -> PanelSection:
+        with self._lock:
+            templates = tuple(self._pickups.values())
+            ready = frozenset(self._ready)
+            complete = len(self._ready) == self._total
+        rows = []
+        actions = []
+        for header, rewards in templates:
+            overlay = self.atlas.pickup_overlay(header, rewards, snapshot)
+            for point in overlay.waypoints:
+                detail = (f"Area {header.area_id:02X} / Floor {header.floor_id:02X} "
+                          f"({point.x},{point.y}) | {point.detail}")
+                row = PanelRow(point.title, detail=detail,
+                               emphasis="muted" if point.completed or point.kind == "conditional" else "")
+                rows.append(row)
+                if overlay.layer_key in ready:
+                    actions.append(PanelAction(point.title, point.title, (row,),
+                                               key=f"treasure-{overlay.layer_key}-{point.x}-{point.y}-{point.title}",
+                                               map_layer_key=overlay.layer_key))
+        rows.sort(key=lambda row: (row.text.casefold(), row.detail))
+        title = "Treasures" if complete else "Treasures (Prepared Maps)"
+        return PanelSection(title, tuple(rows), actions=tuple(actions), role="area", key="treasures",
+                            priority=54, preview_limit=3)
+
     def _start(self, era: int) -> None:
         self.close()
         self._cancel = Event()
@@ -85,7 +109,7 @@ class MapSession:
                 return
             if monotonic() >= deadline:
                 raise ValueError("Native atlas preparation exceeded its total time budget")
-            layer = self._world_layer(world, self.atlas.world(world, era))
+            layer = self._world_layer(world, self.atlas.world_views(world, era))
             with self._lock:
                 if cancellation.is_set():
                     return
@@ -98,23 +122,29 @@ class MapSession:
                          tile_width=8, tile_height=8, anchor_x=4, anchor_y=4,
                          wrap_width=header.width, wrap_height=header.height,
                          map_id=(header.area_id << 8) | header.floor_id,
-                         waypoints=floor_exits(self.atlas.rom, header))
+                         waypoints=(*floor_exits(self.atlas.rom, header), *movement_features(assets.decoded)))
         return replace(layer, image_variants=(
             replace(layer, key=layer.key + "-combined", title="Combined", image_path=assets.image),
             replace(layer, key=layer.key + "-upper", title="Upper", image_path=assets.upper_image),
         ))
 
-    def _world_layer(self, world: int, path) -> MapLayer:
-        return MapLayer(f"world-{world}", f"World {world + 1}", f"world-{world}", path,
-                        tile_width=8, tile_height=8, anchor_x=4, anchor_y=4,
-                        wrap_width=512, wrap_height=512, map_id=0x10000 + world, wraps=True,
-                        waypoints=world_entrances(self.atlas.rom) if world == 0 else ())
+    def _world_layer(self, world: int, paths: tuple[Path, Path, Path]) -> MapLayer:
+        combined, base, upper = paths
+        layer = MapLayer(f"world-{world}", f"World {world + 1}", f"world-{world}", base,
+                         tile_width=8, tile_height=8, anchor_x=4, anchor_y=4,
+                         wrap_width=512, wrap_height=512, map_id=0x10000 + world, wraps=True,
+                         waypoints=world_entrances(self.atlas.rom) if world == 0 else ())
+        return replace(layer, image_variants=(
+            replace(layer, key=layer.key + "-combined", title="Combined", image_path=combined),
+            replace(layer, key=layer.key + "-upper", title="Upper", image_path=upper),
+        ))
 
-    def _prepare_current(self, location: Location, snapshot: bytes, live_cells: bytes | None = None) -> tuple[MapLayer, FloorAssets | None, dict[int, Path]]:
+    def _prepare_current(self, location: Location, snapshot: bytes, live_cells: bytes | None = None,
+                         live_palette: bytes | None = None) -> tuple[MapLayer, FloorAssets | None, dict[int, Path]]:
         if location.world is not None:
-            path = self.atlas.world(location.world, location.era, snapshot)
-            return self._world_layer(location.world, path), None, {}
-        assets = self.atlas.floor(location.area, location.floor, location.era, snapshot, live_cells)
+            paths = self.atlas.world_views(location.world, location.era, snapshot, live_palette)
+            return self._world_layer(location.world, paths), None, {}
+        assets = self.atlas.floor(location.area, location.floor, location.era, snapshot, live_cells, live_palette)
         images = {}
         for entity in read_entities(snapshot, location):
             try:
@@ -123,7 +153,8 @@ class MapSession:
                 continue
         return self._floor_layer(assets), assets, images
 
-    def capture(self, snapshot: bytes, live_cells: bytes | None = None) -> MapCapture:
+    def capture(self, snapshot: bytes, live_cells: bytes | None = None,
+                live_palette: bytes | None = None) -> MapCapture:
         location = read_location(self.atlas.rom, snapshot)
         if self._executor is None or self._era != location.era:
             self._start(location.era)
@@ -131,20 +162,32 @@ class MapSession:
         state += "-" + hashlib.sha256(snapshot[0x3228:0x3240]).hexdigest()[:16]
         if live_cells is not None:
             state += "-" + hashlib.sha256(live_cells).hexdigest()[:16]
+        if live_palette is not None:
+            state += "-" + hashlib.sha256(live_palette).hexdigest()[:16]
         identity = (location.key, location.era, state)
-        if self._requested != identity and (self._current is None or self._current.done()):
-            self._requested = identity
-            self._entity_images = {}
-            self._current = self._executor.submit(self._prepare_current, location, snapshot, live_cells)
         overlays: tuple[MapOverlay, ...] = ()
-        if self._current is not None and self._current.done() and self._requested == identity:
-            layer, assets, self._entity_images = self._current.result()
-            with self._lock:
-                self._ready[layer.key] = layer
-                if assets is not None:
-                    self._pickups[layer.key] = (assets.decoded.header, assets.treasures)
-            if self._catalogue is None:
-                self._catalogue = self._executor.submit(self._build_catalogue, location.era, self._cancel)
+        if self._current is not None and self._current.done():
+            completed = self._current
+            self._current = None
+            if self._requested[:2] == identity[:2]:
+                try:
+                    layer, assets, images = completed.result()
+                except (OSError, ValueError, RuntimeError):
+                    self._requested = None
+                    self._entity_images = {}
+                    raise
+                self._entity_images = images
+                with self._lock:
+                    self._ready[layer.key] = layer
+                    if assets is not None:
+                        self._pickups[layer.key] = (assets.decoded.header, assets.treasures)
+                if self._catalogue is None:
+                    self._catalogue = self._executor.submit(self._build_catalogue, location.era, self._cancel)
+        if self._requested != identity and (self._current is None or self._current.done()):
+            if self._requested is None or self._requested[:2] != identity[:2]:
+                self._entity_images = {}
+            self._requested = identity
+            self._current = self._executor.submit(self._prepare_current, location, snapshot, live_cells, live_palette)
         if self._catalogue is not None and self._catalogue.done():
             self._catalogue.result()
         with self._lock:
@@ -153,7 +196,7 @@ class MapSession:
         overlays = (*tuple(self.atlas.pickup_overlay(header, rewards, snapshot) for header, rewards in templates),
             entity_overlay(snapshot, location, self._entity_images))
         available = any(layer.key == location.key for layer in layers)
-        document = (MapDocument("Dragon Quest V", layers, ("collectibles", "event", "trap", "empty", "npcs", "vehicles", "exits"))
+        document = (MapDocument("Dragon Quest V", layers, ("collectibles", "conditional", "event", "trap", "empty", "npcs", "vehicles", "exits", "movement"))
                     if layers else None)
         progress = None if len(layers) == self._total else (len(layers), self._total)
         return MapCapture(document, location.position if available else None, overlays, progress)

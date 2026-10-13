@@ -113,6 +113,46 @@ def test_core_ram_reader_rejects_invalid_replies(plugin_package: str, monkeypatc
                                                response: str) -> None:
     module = importlib.import_module(f"{plugin_package}.game.memory")
     reader = module.CoreRamReader("127.0.0.1", 55356, 0.4)
+    closed = []
+    monkeypatch.setattr(reader, "close", lambda: closed.append(True))
     monkeypatch.setattr(reader, "_request", lambda command: response)
     with pytest.raises(RuntimeError):
         reader.read_memory(0x7E2040, 1)
+    assert closed == [True]
+
+
+def test_adaptive_reader_discards_failed_fallback_and_recovers_on_fresh_socket(plugin_package: str) -> None:
+    module = importlib.import_module(f"{plugin_package}.game.memory")
+
+    class Primary(Reader):
+        def read_memory(self, address: int, size: int) -> bytes:
+            raise RuntimeError("Core has no descriptor")
+
+    class Fallback(Reader):
+        failed = False
+        closed = False
+
+        def read_memory(self, address: int, size: int) -> bytes:
+            if self.failed:
+                raise RuntimeError("Malformed late core-RAM packet")
+            return super().read_memory(address, size)
+
+        def close(self) -> None:
+            self.closed = True
+
+    created = []
+
+    def factory(source):
+        fallback = Fallback()
+        created.append(fallback)
+        return fallback
+
+    adaptive = module.AdaptiveSnesMemoryReader(Primary(), factory)
+    assert adaptive.read_memory(0x7E2040, 1) == bytes(1)
+    created[0].failed = True
+    with pytest.raises(RuntimeError, match="late"):
+        adaptive.read_memory(0x7E2040, 1)
+    assert created[0].closed and not adaptive.using_core_ram
+    assert adaptive.read_memory(0x7E2040, 1) == bytes(1)
+    assert len(created) == 2 and adaptive.using_core_ram
+    adaptive.close()

@@ -12,18 +12,15 @@ from ..scripts.dq5_rom import RomImage
 from .atlas import NativeAtlas
 from .battle import read_battle
 from .catalogs import Catalogs
-from .casino import arena_section
 from .combat_advice import CombatAdvice
-from .commerce import casino_prizes, equipment_section, merchant_section, service_section
+from .commerce import equipment_section, merchant_section, service_section
 from .commands import selected_commands
-from .encounters import local_encounters
 from .map_session import MapSession
-from .medals import medal_section, read_medals
+from .medals import medal_section, pickup_progress, read_medals
 from .memory import AdaptiveSnesMemoryReader, capture
 from .names import ENGLISH_ROMS, NativeNames
-from .navigation import navigation_section
-from .presentation import combat_advice_section, party_sections
-from .recruitment import recruitment_section
+from .navigation import navigation_section, ready_navigation, world_navigation_section
+from .presentation import combat_advice_section, party_sections, resistance_advice
 from .state import read_party
 
 
@@ -102,21 +99,19 @@ class Adapter:
             battle = read_battle(self.rom, snapshot.ram, self.names)
             sections = (*party_sections(party, battle, snapshot.ram), equipment_section(self.rom, self.names, party),
                         medal_section(read_medals(self.rom, self.names, party),
-                                      pickups=self._maps.medal_pickups(snapshot.ram) if self._maps is not None else None),
-                        casino_prizes(self.rom, self.names, party))
+                                      pickups=pickup_progress(self.rom, snapshot.ram)))
             merchant = merchant_section(self.rom, self.names, party, snapshot.ram) if not battle.active else None
             if merchant is not None:
                 sections = (merchant, *sections)
             service = service_section(self.rom, party, snapshot.ram) if not battle.active else None
             if service is not None:
                 sections = (service, *sections)
-            arena = arena_section(snapshot.ram, self.names, battle)
-            if arena is not None:
-                sections = (arena, *sections)
-            sections = (*sections, recruitment_section(self.rom, self.names, party, snapshot.ram))
             commands = selected_commands(self.rom, self.names, party, battle, snapshot.ram)
             if commands is not None:
                 sections = (*sections, commands)
+            resistances = resistance_advice(self.names, party, battle, snapshot.ram)
+            if resistances is not None:
+                sections = (*sections, resistances)
         except (OSError, ValueError, RuntimeError) as error:
             message = str(error)
             if message not in self._logged and len(self._logged) < 128:
@@ -134,7 +129,7 @@ class Adapter:
             sections = (*sections, combat_advice_section(self._combat_advice, self._request_advice))
         else:
             self._advice_requested = False
-        for catalog in (lambda: self._catalogs.bestiary_section(battle), lambda: self._catalogs.items_section()):
+        for catalog in (lambda: self._catalogs.items_section(),):
             try:
                 hero_name = self.names.companion(0, 0, snapshot.ram)
                 if self._catalogs.hero_name != hero_name:
@@ -148,25 +143,21 @@ class Adapter:
         map_document = None
         map_position = None
         map_overlays = ()
-        if not battle.active:
-            try:
-                encounters = local_encounters(self.rom, self.names, snapshot.ram)
-                if encounters is not None:
-                    sections = (*sections, encounters)
-            except (OSError, ValueError, RuntimeError) as error:
-                message = str(error)
-                if message not in self._logged and len(self._logged) < 128:
-                    self._logged.add(message)
-                    LOGGER.warning("DQ5 encounters unavailable: %s", message)
         if self._maps is not None and not battle.active:
             try:
                 size = snapshot.ram[0xBF] * snapshot.ram[0xC0] * 8
                 live_cells = snapshot.ram[0xC000:0xC000 + size] if snapshot.has_range(0xC000, size) and size else None
-                maps = self._maps.capture(snapshot.ram, live_cells)
+                live_palette = snapshot.ram[0x3914:0x3B14] if snapshot.has_range(0x3914, 512) else None
+                maps = self._maps.capture(snapshot.ram, live_cells, live_palette)
                 map_document, map_position, map_overlays = maps.document, maps.position, maps.overlays
+                sections = (*sections, self._maps.treasures(snapshot.ram))
                 if snapshot.ram[0xBE] & 0x80:
                     header = self._maps.atlas.header(snapshot.ram[0xBC], snapshot.ram[0xBD])
-                    sections = (*sections, navigation_section(self.rom, header, self.names, snapshot.ram))
+                    navigation = navigation_section(self.rom, header, self.names, snapshot.ram)
+                else:
+                    navigation = world_navigation_section(self.rom, self.names, snapshot.ram, snapshot.ram[0x1949])
+                available = frozenset(layer.key for layer in map_document.layers) if map_document is not None else frozenset()
+                sections = (*sections, ready_navigation(navigation, available))
                 if maps.progress is not None:
                     completed, total = maps.progress
                     sections = (*sections, PanelSection("Atlas", (PanelRow(f"Preparing {completed}/{total}",

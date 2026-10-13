@@ -70,3 +70,16 @@ def drop_denominator(rom: RomImage, profile: MonsterProfile) -> int | None:
     if not 1 <= denominator <= 65535:
         raise ValueError("Native selected-enemy drop denominator is invalid")
     return denominator
+
+
+def damage_resistance_scale(rom: RomImage, rank: int, *, hero_level: int | None = None,
+                            encounter_level: int | None = None) -> int:
+    if not 0 <= rank <= 3:
+        raise ValueError("Native resistance rank must fit its two-bit field")
+    if (hero_level is None) != (encounter_level is None):
+        raise ValueError("Native resistance context requires both hero and encounter level")
+    if hero_level is not None and (not 1 <= hero_level <= 99 or not 0 <= encounter_level <= 255):
+        raise ValueError("Native resistance level context is invalid")
+    advantage = hero_level is not None and hero_level - 10 >= encounter_level
+    value = rom.byte((0x278059 if advantage else 0x278055) + rank)
+    return 256 if value == 0xFF else value

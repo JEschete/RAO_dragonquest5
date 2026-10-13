@@ -33,6 +33,10 @@ def test_party_formation_roles_and_custom_name(owned_rom, plugin_package: str) -
     assert party.companions[1].name == "Jude"
     for position, member in enumerate(party.companions):
         assert native.evaluate(owned_rom, snapshot, 0, position, mask=0x80).value == member.hp
+        assert native.evaluate(owned_rom, snapshot, 0x0F, member.slot).value == member.attack
+        assert native.evaluate(owned_rom, snapshot, 0x13, member.slot).value == member.defense
+        assert native.evaluate(owned_rom, snapshot, 0x17, member.slot).value == member.agility
+        assert native.evaluate(owned_rom, snapshot, 0x20, member.slot).value == member.wisdom
 
 
 def test_party_inventory_and_unknown_storage_are_not_guessed(owned_rom, plugin_package: str) -> None:
@@ -45,6 +49,7 @@ def test_party_inventory_and_unknown_storage_are_not_guessed(owned_rom, plugin_p
     hero = next(member for member in party.companions if member.slot == 0)
     assert hero.inventory[0].name == "Cypress Stick"
     assert hero.inventory[0].equipped
+    assert hero.attack == 2
     assert party.deposited == ()
 
 

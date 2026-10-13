@@ -21,6 +21,8 @@ class EncounterProfile:
     single: tuple[int, ...]
     fixed: tuple[int, ...]
     recruitment: bool
+    rate_class: int
+    rate_coefficient: int
 
 
 def encounter_profile(rom: RomImage, identity: int) -> EncounterProfile:
@@ -36,8 +38,9 @@ def encounter_profile(rom: RomImage, identity: int) -> EncounterProfile:
         fixed = tuple(value for value in rom.read(0x23B04B + fixed_id * 6, 3) if value != 0xFF)
     if any(value >= 235 for value in (*data[12:22], *fixed)):
         raise ValueError("Encounter profile contains an invalid native monster")
+    rate_class = sum((data[5 + bit] >> 7) << bit for bit in range(3))
     return EncounterProfile(identity, data[0], weights, tuple(data[12:17]), tuple(data[17:22]),
-                            fixed, bool(data[8] & 0x80))
+                            fixed, bool(data[8] & 0x80), rate_class, rom.byte(0x23EA44 + rate_class))
 
 
 def local_encounters(rom: RomImage, names: NativeNames, snapshot: bytes) -> PanelSection | None:
@@ -50,7 +53,10 @@ def local_encounters(rom: RomImage, names: NativeNames, snapshot: bytes) -> Pane
     total = sum(profile.weights)
     if not total:
         return None
-    rows = []
+    rows = [PanelRow(f"Encounter coefficient {profile.rate_coefficient}",
+                     detail="Native step check includes the current field adjustment and accumulated steps"),
+            PanelRow("Recruiting permitted by encounter profile" if profile.recruitment
+                     else "Recruiting disabled by encounter profile")]
     for index, weight in enumerate(profile.weights[:10]):
         if not weight:
             continue

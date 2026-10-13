@@ -12,6 +12,9 @@ def test_native_encounter_profiles_preserve_candidate_and_weight_arrays(owned_ro
     first = module.encounter_profile(owned_rom, 0)
     assert first.multiple == first.single == (0, 1, 2, 0, 27)
     assert first.weights == tuple(value & 7 for value in owned_rom.read(0x2396F4, 11))
+    assert first.rate_class == 3 and first.rate_coefficient == 64
+    assert owned_rom.read(0x23E898, 3) == bytes.fromhex("B944EA")
+    assert owned_rom.read(0x23E8BE, 4) == bytes.fromhex("C5009004")
 
 
 def test_recruitment_uses_saved_flags_and_distinct_native_tables(owned_rom, plugin_package: str) -> None:

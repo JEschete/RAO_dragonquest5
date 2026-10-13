@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from retroarch_overlay.models import PanelRow, PanelSection
 
 from ..scripts.dq5_rom import RomImage
+from ..scripts.dq5_treasures import medal_pickup_flags
 from .items import shop_catalog
 from .names import NativeNames
 from .state import PartyState
@@ -37,6 +38,13 @@ def read_medals(rom: RomImage, names: NativeNames, party: PartyState) -> MedalSt
                     for index, item in enumerate(records[0].items))
     carried = sum(item.item_id == MEDAL_ITEM for member in party.companions for item in member.inventory)
     return MedalState(carried, party.medals, rewards)
+
+
+def pickup_progress(rom: RomImage, snapshot: bytes) -> tuple[int, int]:
+    if len(snapshot) != 0x20000:
+        raise ValueError("Medal pickup progress requires a complete WRAM-shaped snapshot")
+    flags = medal_pickup_flags(rom)
+    return sum(bool(snapshot[address - 0x7E0000] & mask) for address, mask in flags), len(flags)
 
 
 def medal_section(state: MedalState, *, pickups: tuple[int, int] | None = None) -> PanelSection:

@@ -15,18 +15,20 @@ from time import monotonic
 if __package__:
     from .dq5_map_data import map_catalog
     from .dq5_map_decode import decode_floor, decode_world
+    from .dq5_names import ENGLISH_ROMS, ITEM_NAMES, NativeNames
     from .dq5_render import render_floor, render_treasure_markers, render_world
     from .dq5_rom import RomImage
     from .dq5_treasures import treasures_for_floor
 else:
     from dq5_map_data import map_catalog
     from dq5_map_decode import decode_floor, decode_world
+    from dq5_names import ENGLISH_ROMS, ITEM_NAMES, NativeNames
     from dq5_render import render_floor, render_treasure_markers, render_world
     from dq5_rom import RomImage
     from dq5_treasures import treasures_for_floor
 
 
-DECODER_VERSION = 3
+DECODER_VERSION = 4
 
 
 def _export_directory(root: Path, rom: RomImage, options: dict[str, object]) -> Path:
@@ -91,6 +93,7 @@ def main() -> int:
     started = monotonic()
     try:
         rom = RomImage.load(arguments.rom, arguments.patch)
+        names = NativeNames(rom) if rom.md5 in ENGLISH_ROMS else None
         catalog = map_catalog(rom)
         if arguments.list:
             print(json.dumps({"rom": rom.variant, "md5": rom.md5, "maps": [asdict(header) for header in catalog]}, indent=2))
@@ -137,7 +140,9 @@ def main() -> int:
                 with _atomic_destination(output / marker_filename) as temporary:
                     render_treasure_markers(image, treasures, scale=arguments.scale).save(temporary, format="PNG")
             locations = [{**asdict(treasure), "item_id": treasure.item_id, "reward_type": treasure.reward_type,
-                          "gold": treasure.gold, "label": treasure.label}
+                          "gold": treasure.gold,
+                          "label": names.get(ITEM_NAMES, treasure.item_id)
+                          if names is not None and treasure.item_id is not None else treasure.label}
                          for treasure in treasures]
             treasure_rows.extend(locations)
             record = {"family": "floor", **asdict(header), "image": filename, "pixel_width": image.width,

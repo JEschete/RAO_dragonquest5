@@ -7,9 +7,10 @@ import socket
 from retroarch_overlay.core.contracts import MemoryReader
 
 
-REGIONS = ((0, 0x1000), (0x1000, 0x200), (0x1900, 0x200), (0x2000, 0xA40), (0x3000, 0x740))
+REGIONS = ((0, 0x1000), (0x1000, 0x300), (0x1900, 0x200), (0x2000, 0xA40), (0x3000, 0x740))
 GUARDS = ((0xA0, 0x24), (0x1000, 0x20), (0x1944, 8), (0x201C, 12), (0x21C7, 2),
-          (0x0AD6, 1), (0x0AEA, 1), (0x0F20, 8), (0x1A98, 8), (0x115A, 8))
+          (0x0AD6, 1), (0x0AEA, 1), (0x0F20, 8), (0x1A98, 8), (0x115A, 8),
+          (0x1272, 1), (0x12C4, 16))
 
 
 class CoreRamReader:
@@ -60,10 +61,12 @@ class CoreRamReader:
             response = self._request(f"READ_CORE_RAM {chunk_address:x} {chunk_size}").split()
             if (len(response) != chunk_size + 2 or response[0] != "READ_CORE_RAM"
                     or response[1].casefold() != f"{chunk_address:x}"):
+                self.close()
                 raise RuntimeError(f"Incomplete READ_CORE_RAM response at WRAM offset ${chunk_address:05X}")
             try:
                 chunks.append(bytes(int(value, 16) for value in response[2:]))
             except ValueError as error:
+                self.close()
                 raise RuntimeError("Invalid READ_CORE_RAM bytes") from error
         return b"".join(chunks)
 
@@ -87,14 +90,18 @@ class AdaptiveSnesMemoryReader:
 
     def read_memory(self, address: int, size: int) -> bytes:
         if self._fallback is not None:
-            return self._fallback.read_memory(address, size)
+            try:
+                return self._fallback.read_memory(address, size)
+            except (OSError, RuntimeError, ValueError):
+                self.close()
+                raise
         try:
             return self.source.read_memory(address, size)
         except RuntimeError as error:
             if "no descriptor" not in str(error).casefold():
                 raise
             self._fallback = self._fallback_factory(self.source)
-            return self._fallback.read_memory(address, size)
+            return self.read_memory(address, size)
 
 
 @dataclass(frozen=True, slots=True)
@@ -131,4 +138,15 @@ def capture(memory: MemoryReader, *, live_map: bool = False) -> MemorySnapshot:
             raise ValueError("DQ5 state changed while the snapshot was being read")
     if live_map and memory.read_memory(0x7E00BC, 5) != ram[0xBC:0xC1]:
         raise ValueError("Live native map identity/dimensions changed during capture")
+    if live_map and int.from_bytes(ram[0x1944:0x1946], "little") == 0x8926:
+        palette = memory.read_memory(0x7E3914, 0x200)
+        if len(palette) != 0x200:
+            raise ValueError("Incomplete live native palette buffer")
+        ram[0x3914:0x3B14] = palette
+        if memory.read_memory(0x7E3914, 0x200) != palette:
+            raise ValueError("Live native palette changed during capture")
+        if (memory.read_memory(0x7E1944, 8) != ram[0x1944:0x194C]
+                or memory.read_memory(0x7E00BC, 5) != ram[0xBC:0xC1]):
+            raise ValueError("Native scene/map changed during palette capture")
+        regions.append((0x3914, 0x200))
     return MemorySnapshot(bytes(ram), tuple(regions))

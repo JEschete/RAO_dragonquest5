@@ -6,6 +6,23 @@ from .battle import Battle
 from .names import MONSTER_NAMES, NativeNames
 
 
+def race_section(snapshot: bytes) -> PanelSection | None:
+    if len(snapshot) != 0x20000:
+        raise ValueError("Slime Race telemetry requires native WRAM")
+    if snapshot[0x0F20] != 13 or snapshot[0x1271] != 3:
+        return None
+    phase = snapshot[0x1272]
+    stakes = tuple(snapshot[0x12CB + ordinal * 2] for ordinal in range(5))
+    coins = int.from_bytes(snapshot[0x12C4:0x12C7], "little")
+    if phase > 5 or coins > 9999999 or any(stake > 99 for stake in stakes):
+        raise ValueError("Slime Race workspace has not committed valid native values")
+    rows = [PanelRow(f"Committed stakes {sum(stakes):,} coins"),
+            PanelRow("Racing" if phase == 2 else "Slime Race", detail=f"Uncommitted coins {coins:,}")]
+    rows.extend(PanelRow(f"Runner {ordinal + 1}", detail=f"Stake {stake} coins")
+                for ordinal, stake in enumerate(stakes))
+    return PanelSection("Slime Race", tuple(rows), role="area", key="casino-race", priority=5)
+
+
 def arena_section(snapshot: bytes, names: NativeNames, battle: Battle) -> PanelSection | None:
     if len(snapshot) != 0x20000:
         raise ValueError("Arena telemetry requires native WRAM")

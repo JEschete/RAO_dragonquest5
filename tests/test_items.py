@@ -36,3 +36,34 @@ def test_unsupported_item_is_rejected(owned_rom, plugin_package: str, identity: 
     module = importlib.import_module(f"{plugin_package}.game.items")
     with pytest.raises(ValueError):
         module.item_profile(owned_rom, identity)
+
+
+def test_equipment_use_effects_follow_verified_native_dispatch(owned_rom, plugin_package: str) -> None:
+    module = importlib.import_module(f"{plugin_package}.game.items")
+    assert owned_rom.read(0x20BA4E, 4) == bytes.fromhex("BF9A8127")
+    assert owned_rom.read(0x20BA78, 3) == bytes.fromhex("FC62C1")
+    expected = {0x0D: 4, 0x1A: 0x21, 0x27: 5, 0x28: 0x0D, 0x29: 0x19,
+                0x2A: 7, 0x2B: 0x28, 0x2C: 0x2E, 0x2D: 0x26,
+                0x2E: 0x2D, 0x30: 4, 0x31: 0x0E, 0x3B: 0x3F,
+                0x7A: 0x28, 0x9E: 7, 0x9F: 0x0D, 0xBC: 8}
+    for identity, command in expected.items():
+        assert module.battle_use_command(owned_rom, identity) == command
+    assert module.battle_use_command(owned_rom, 0) is None
+
+
+def test_mp_recovery_ranges_and_ring_break_check_follow_native_operands(owned_rom, plugin_package: str) -> None:
+    module = importlib.import_module(f"{plugin_package}.game.items")
+    native = importlib.import_module(f"{plugin_package}.scripts.dq5_native")
+    assert module.mp_recovery(owned_rom, 0xA8) == (20, 30, 8)
+    assert module.mp_recovery(owned_rom, 0xA9) == (10, 15, None)
+    assert owned_rom.read(0x20BE13, 6) == bytes.fromhex("A908223A9500")
+    for bound in (6, 8, 11):
+        observed = set()
+        for seed in range(256):
+            machine = native.NativeMachine(owned_rom, max_steps=2000, timeout=0.05)
+            machine.cpu.p = 0x34
+            machine.cpu.a = bound
+            machine.bus.write_word(0x075B, seed)
+            machine.call(0x00953A, long_return=True)
+            observed.add(machine.cpu.a & 0xFF)
+        assert observed == set(range(bound))

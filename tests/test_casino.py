@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import importlib
 
+import pytest
+
 
 def test_arena_reads_committed_lineup_odds_selection_and_wager(owned_rom, plugin_package: str) -> None:
     module = importlib.import_module(f"{plugin_package}.game.casino")
@@ -23,3 +25,34 @@ def test_arena_reads_committed_lineup_odds_selection_and_wager(owned_rom, plugin
     assert section.rows[2].emphasis == "success"
     ram[0x0F20] = 0
     assert module.arena_section(bytes(ram), names, battle) is None
+
+
+def test_race_stakes_and_phase_use_actual_native_workspace(owned_rom, plugin_package: str) -> None:
+    module = importlib.import_module(f"{plugin_package}.game.casino")
+    assert owned_rom.read(0x06F1E8, 5) == bytes.fromhex("A90D8D200F")
+    assert owned_rom.read(0x11DC28, 7) == bytes.fromhex("B9CB121A99CB12")
+    ram = bytearray(0x20000)
+    ram[0x0F20] = 13
+    assert module.race_section(bytes(ram)) is None
+    ram[0x1271] = 3
+    ram[0x1272] = 2
+    ram[0x12C4:0x12C7] = (800).to_bytes(3, "little")
+    for ordinal, stake in enumerate((3, 5, 0, 2, 99)):
+        ram[0x12CB + ordinal * 2] = stake
+    section = module.race_section(bytes(ram))
+    assert section.rows[0].text == "Committed stakes 109 coins"
+    assert section.rows[1].text == "Racing"
+    assert section.rows[3].text == "Runner 2" and section.rows[3].detail == "Stake 5 coins"
+    ram[0x0F20] = 0
+    assert module.race_section(bytes(ram)) is None
+
+
+@pytest.mark.parametrize("address, value", [(0x1272, 6), (0x12CB, 100)])
+def test_race_uncommitted_values_fail_closed(plugin_package: str, address: int, value: int) -> None:
+    module = importlib.import_module(f"{plugin_package}.game.casino")
+    ram = bytearray(0x20000)
+    ram[0x0F20] = 13
+    ram[0x1271] = 3
+    ram[address] = value
+    with pytest.raises(ValueError):
+        module.race_section(bytes(ram))

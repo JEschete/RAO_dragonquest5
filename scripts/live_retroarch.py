@@ -48,8 +48,10 @@ def launch(install: Path, rom: Path, output: Path, port: int) -> dict[str, objec
     output.mkdir(parents=True, exist_ok=True)
     saves = output / "saves"
     states = output / "states"
+    remaps = output / "remaps"
     saves.mkdir(exist_ok=True)
     states.mkdir(exist_ok=True)
+    remaps.mkdir(exist_ok=True)
     original = Path("F:/RASaves") / rom.with_suffix(".srm").name
     save_hash = None
     if original.is_file():
@@ -61,6 +63,7 @@ def launch(install: Path, rom: Path, output: Path, port: int) -> dict[str, objec
         "network_cmd_enable": "true", "network_cmd_port": str(port),
         "config_save_on_exit": "false", "cheevos_enable": "false",
         "input_remap_binds_enable": "false", "history_list_enable": "false",
+        "input_remapping_directory": remaps.as_posix(), "input_turbo_enable": "false",
         "cheevos_hardcore_mode_enable": "false", "video_fullscreen": "false",
         "video_driver": "gl", "video_shader_enable": "false",
         "video_windowed_fullscreen": "false", "video_windowed_scale": "3",
@@ -113,6 +116,7 @@ def capture(port: int, output: Path) -> dict[str, object]:
     result = {"status": status, "transport": transport, "bytes": len(ram), "party_total": ram[0x201D],
               "active_count": ram[0x201E], "mode": f"{int.from_bytes(ram[0x1944:0x1946], 'little'):04X}",
               "area": ram[0xBC], "floor": ram[0xBD], "era": ram[0x1948],
+              "native_frame": ram[0x0993], "controller_bytes": ram[0x20:0x27].hex(),
               "core_snapshot_sha256": hashlib.sha256(ram).hexdigest()}
     (output / "capture.json").write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
     return result
@@ -138,7 +142,29 @@ def press_start(port: int, output: Path, *, button: str = "start") -> dict[str, 
     user32.SetForegroundWindow.argtypes = (wintypes.HWND,)
     user32.SetForegroundWindow.restype = wintypes.BOOL
     user32.GetForegroundWindow.restype = wintypes.HWND
-    user32.keybd_event.argtypes = (wintypes.BYTE, wintypes.BYTE, wintypes.DWORD, ctypes.c_size_t)
+
+    class KeyboardInput(ctypes.Structure):
+        _fields_ = (("virtual_key", wintypes.WORD), ("scan_code", wintypes.WORD),
+                    ("flags", wintypes.DWORD), ("time", wintypes.DWORD), ("extra", ctypes.c_size_t))
+
+    class MouseInput(ctypes.Structure):
+        _fields_ = (("x", wintypes.LONG), ("y", wintypes.LONG), ("data", wintypes.DWORD),
+                    ("flags", wintypes.DWORD), ("time", wintypes.DWORD), ("extra", ctypes.c_size_t))
+
+    class InputData(ctypes.Union):
+        _fields_ = (("keyboard", KeyboardInput), ("mouse", MouseInput))
+
+    class InputEvent(ctypes.Structure):
+        _fields_ = (("kind", wintypes.DWORD), ("data", InputData))
+
+    user32.SendInput.argtypes = (wintypes.UINT, ctypes.POINTER(InputEvent), ctypes.c_int)
+    user32.SendInput.restype = wintypes.UINT
+
+    def send_key(released: bool) -> None:
+        flags = 0x08 | (0x02 if released else 0) | (0x01 if button in ("up", "down", "left", "right") else 0)
+        event = InputEvent(1, InputData(keyboard=KeyboardInput(0, scan_code, flags, 0, 0)))
+        if user32.SendInput(1, ctypes.byref(event), ctypes.sizeof(event)) != 1:
+            raise OSError(ctypes.get_last_error(), "Isolated key input was refused by Windows")
     callback_type = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
     user32.EnumWindows.argtypes = (callback_type, wintypes.LPARAM)
     windows = []
@@ -178,13 +204,42 @@ def press_start(port: int, output: Path, *, button: str = "start") -> dict[str, 
     user32.GetWindowThreadProcessId(user32.GetForegroundWindow(), ctypes.byref(focused_process))
     if focused_process.value != session["pid"]:
         raise ValueError("Refusing controller input because the isolated emulator does not have focus")
+    sys.path.insert(0, str(ROOT.parents[1] / "src"))
+    sys.path.insert(0, str(ROOT))
+    from retroarch_overlay.retroarch import RetroArchClient
+    from game.memory import AdaptiveSnesMemoryReader
+
+    source = RetroArchClient(port=port, timeout=0.4)
+    reader = AdaptiveSnesMemoryReader(source)
+    if int.from_bytes(reader.read_memory(0x7E1944, 2), "little") not in (0x8926, 0x8952):
+        reader.close()
+        source.close()
+        raise ValueError("The isolated game has not initialized its native frame service")
+    initial_frame = reader.read_memory(0x7E0993, 1)[0]
+    deadline = monotonic() + 2
+    held_frames = 0
+    held_controller = b""
     try:
-        user32.keybd_event(virtual_key, scan_code, 0, 0)
-        capture(port, output)
+        send_key(False)
+        for _ in range(1024):
+            current_frame = reader.read_memory(0x7E0993, 1)[0]
+            held_frames = (current_frame - initial_frame) & 255
+            if held_frames >= 6:
+                held_controller = reader.read_memory(0x7E0020, 7)
+                break
+            if monotonic() >= deadline:
+                raise ValueError(f"The isolated core did not advance six frame ticks within its input budget "
+                                 f"({initial_frame} -> {current_frame})")
+        else:
+            raise ValueError("The isolated core did not advance six native frames within its capture budget")
     finally:
-        user32.keybd_event(virtual_key, scan_code, 2, 0)
+        send_key(True)
+        reader.close()
+        source.close()
     result = capture(port, output)
     result["input"] = f"One {button} press in the isolated test session"
+    result["held_native_frames"] = held_frames
+    result["held_controller_bytes"] = held_controller.hex()
     return result
 
 

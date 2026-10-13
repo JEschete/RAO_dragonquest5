@@ -9,6 +9,14 @@ from .state import Companion
 
 ITEM_COUNT = 216
 ITEM_KINDS = ("Weapon", "Armor", "Shield", "Helmet", "Item", "Agility accessory", "Ribbon", "Accessory")
+SPELL_USE_OPERANDS = {
+    0x20BA8B: 0x20BA8E, 0x20BA97: 0x20BA97, 0x20BB67: 0x20BB6A,
+    0x20BB73: 0x20BB76, 0x20BB7F: 0x20BB82, 0x20BB8B: 0x20BB8E,
+    0x20BB97: 0x20BB97, 0x20BBA0: 0x20BBA6, 0x20BBA6: 0x20BBA6,
+    0x20BBAF: 0x20BBAF, 0x20BBB8: 0x20BBB8, 0x20BBC1: 0x20BBC1,
+    0x20BBD1: 0x20BBD7, 0x20BBE0: 0x20BBE3, 0x20BBEC: 0x20BBEF,
+    0x20BBF8: 0x20BBF8,
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -58,6 +66,43 @@ def equipment_allowed(rom: RomImage, item: ItemProfile, member: Companion) -> bo
     return bool(item.human_mask & rom.byte(0x21A632 + member.identifier))
 
 
+@lru_cache(maxsize=648)
+def battle_use_command(rom: RomImage, item_id: int) -> int | None:
+    if not 0 <= item_id < ITEM_COUNT:
+        raise ValueError("Native item use requires a supported item identity")
+    for ordinal in range(64):
+        identity = rom.byte(0x27819A + ordinal)
+        if identity == 0xFF:
+            return None
+        if identity != item_id:
+            continue
+        handler = 0x200000 | rom.word(0x20C162 + ordinal * 2)
+        address = SPELL_USE_OPERANDS.get(handler)
+        if address is None:
+            return None
+        data = rom.read(address, 5)
+        if data[0] != 0xA9 or data[2:] != bytes.fromhex("8DF710"):
+            raise ValueError("Native item-use command operand does not match its verified handler")
+        return data[1]
+    raise ValueError("Native item-use dispatch has no bounded terminator")
+
+
+def mp_recovery(rom: RomImage, item_id: int) -> tuple[int, int, int | None] | None:
+    if item_id == 0xA8:
+        address = 0x20BE06
+        break_denominator = 8
+    elif item_id == 0xA9:
+        address = 0x20BE3B
+        break_denominator = None
+    else:
+        return None
+    data = rom.read(address, 7)
+    if data[0] != 0xA9 or data[2:4] != bytes.fromhex("EBA9") or data[5:] != bytes.fromhex("2048"):
+        raise ValueError("Native MP recovery operands differ from their verified handler")
+    minimum, span = data[4], data[1]
+    return minimum, minimum + span - 1, break_denominator
+
+
 @dataclass(frozen=True, slots=True)
 class EquipmentComparison:
     member: Companion
@@ -82,6 +127,8 @@ def compare_equipment(rom: RomImage, item_id: int, members: tuple[Companion, ...
         tradeoff = candidate.cursed or candidate.appraisal_effect > 1 or (
             equipped is not None and (equipped.cursed or equipped.appraisal_effect > 1)
         )
+        tradeoff = tradeoff or battle_use_command(rom, candidate.item_id) != (
+            battle_use_command(rom, equipped.item_id) if equipped is not None else None)
         comparisons.append(EquipmentComparison(member, candidate, equipped, delta, tradeoff))
     return tuple(comparisons)
 

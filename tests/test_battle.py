@@ -36,6 +36,34 @@ def test_live_enemy_values_use_native_maximum_and_status_fields(owned_rom, plugi
     assert result.enemies[0].statuses == ("Sleeping", "Confused")
 
 
+def test_enemy_buff_chips_match_native_status_accessor_masks(owned_rom, plugin_package: str) -> None:
+    module = importlib.import_module(f"{plugin_package}.game.battle")
+    labels = importlib.import_module(f"{plugin_package}.game.names")
+    native = importlib.import_module(f"{plugin_package}.game.native_access")
+    ram = _battle_ram()
+    ram[0x7CC] = 0xC0
+    result = module.read_battle(owned_rom, bytes(ram), labels.NativeNames(owned_rom), scene_active=True)
+    assert result.enemies[0].statuses == ("Attack boosted", "Spell reflection")
+    for identity in (0x38, 0x39):
+        assert native.evaluate(owned_rom, bytes(ram), 0x79, 0, parameters=(identity, 0, 0)).auxiliary
+
+
+def test_current_enemy_resistance_advice_uses_native_level_selector(owned_rom, plugin_package: str) -> None:
+    battle_module = importlib.import_module(f"{plugin_package}.game.battle")
+    presenter = importlib.import_module(f"{plugin_package}.game.presentation")
+    state = importlib.import_module(f"{plugin_package}.game.state")
+    names = importlib.import_module(f"{plugin_package}.game.names").NativeNames(owned_rom)
+    helpers = importlib.import_module("test_party")
+    party = state.read_party(bytes(helpers._snapshot()), names)
+    ram = _battle_ram()
+    battle = battle_module.read_battle(owned_rom, bytes(ram), names, scene_active=True)
+    section = presenter.resistance_advice(names, party, battle, bytes(ram))
+    assert section.key == "battle-resistances"
+    assert section.rows[0].text == "Slime" and "Fire" in section.rows[0].detail
+    assert "not a status-effect" in section.rows[0].tooltip
+    assert presenter.resistance_advice(names, party, battle_module.Battle(False, False, 0, ()), bytes(ram)) is None
+
+
 def test_native_enemy_removal_keeps_sparse_physical_survivor_slots(owned_rom, plugin_package: str) -> None:
     battle_module = importlib.import_module(f"{plugin_package}.game.battle")
     labels = importlib.import_module(f"{plugin_package}.game.names")
@@ -167,8 +195,15 @@ def test_temporary_party_battle_statuses_clear_with_scene(owned_rom, plugin_pack
     names = labels.NativeNames(owned_rom)
     party = state.read_party(bytes(ram), names)
     ram[0x765] = 0xB8
+    ram[0x766] = 0xC0
+    ram[0x760:0x765] = bytes((90, 0, 70, 0, 40))
     active = battle_module.Battle(True, False, 0, ())
     row = presenter.party_sections(party, active, bytes(ram))[0].columns[0].rows[0]
+    assert "Attack 90 | Defense 70" in row.tooltip
+    assert "Agility 40" in row.tooltip
     assert {chip.text for chip in row.chips} >= {"Sleeping", "Confused", "Silenced", "Dazzled"}
+    assert {chip.text for chip in row.chips} >= {"Attack boosted", "Spell reflection"}
     field = presenter.party_sections(party, battle_module.Battle(False, False, 0, ()), bytes(ram))[0].rows[0]
+    assert "Attack 90 | Defense 70" not in field.tooltip
     assert "Sleeping" not in {chip.text for chip in field.chips}
+    assert not {"Attack boosted", "Spell reflection"} & {chip.text for chip in field.chips}

@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from .names import NativeNames
+from .native_access import evaluate
 
 
 TRAVEL_BASE = 0x2040
@@ -45,6 +46,8 @@ class Companion:
     direct_commands: bool
     restrictions: int
     profile_id: int
+    attack: int | None = None
+    defense: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -116,6 +119,11 @@ def read_party(snapshot: bytes, names: NativeNames) -> PartyState:
                          slot, "active" if position < active else "wagon", names)
         if member is None:
             raise ValueError("A formation member is not initialized")
+        member = replace(member,
+                         attack=evaluate(names.rom, snapshot, 0x0F, slot).value,
+                         defense=evaluate(names.rom, snapshot, 0x13, slot).value,
+                         agility=evaluate(names.rom, snapshot, 0x17, slot).value,
+                         wisdom=evaluate(names.rom, snapshot, 0x20, slot).value)
         companions.append(member)
     deposited = []
     for role, base, stride, count in (("monster caretaker", MONSTER_STORAGE_BASE, MONSTER_STORAGE_STRIDE, 60),

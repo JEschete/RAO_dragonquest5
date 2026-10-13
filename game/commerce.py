@@ -4,8 +4,8 @@ from retroarch_overlay.models import PanelAction, PanelChip, PanelRow, PanelSect
 
 from ..scripts.dq5_rom import RomImage
 from ..scripts.dq5_native import NativeMachine
-from .items import EquipmentComparison, compare_equipment, item_profile, shop_catalog
-from .names import ITEM_NAMES, NativeNames
+from .items import EquipmentComparison, battle_use_command, compare_equipment, item_profile, shop_catalog
+from .names import COMMAND_NAMES, ITEM_NAMES, NativeNames
 from .state import PartyState
 
 
@@ -16,7 +16,15 @@ def _comparison_row(comparison: EquipmentComparison, names: NativeNames) -> Pane
     flags = tuple(label for condition, label in (
         (comparison.candidate.cursed, "Cursed"), (comparison.effect_tradeoff, "Property tradeoff"),
     ) if condition)
-    return PanelRow(comparison.member.name, detail=f"{previous} -> {names.get(ITEM_NAMES, comparison.candidate.item_id)}\n{change}",
+    candidate_command = battle_use_command(names.rom, comparison.candidate.item_id)
+    previous_command = (battle_use_command(names.rom, comparison.equipped.item_id)
+                        if comparison.equipped is not None else None)
+    effects = ""
+    if candidate_command is not None or previous_command is not None:
+        candidate_effect = names.get(COMMAND_NAMES, candidate_command) if candidate_command is not None else "None"
+        previous_effect = names.get(COMMAND_NAMES, previous_command) if previous_command is not None else "None"
+        effects = f"\nBattle-use effect: {previous_effect} -> {candidate_effect}"
+    return PanelRow(comparison.member.name, detail=f"{previous} -> {names.get(ITEM_NAMES, comparison.candidate.item_id)}\n{change}{effects}",
                     chips=tuple(PanelChip(label, "#9B3945" if label == "Cursed" else "#82652C") for label in flags),
                     emphasis="success" if comparison.power_delta is not None and comparison.power_delta > 0
                     and not comparison.effect_tradeoff else "")

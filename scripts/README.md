@@ -5,10 +5,11 @@ graphics, palettes, and reward records come from the locally owned cartridge.
 The decoder does not read GameFAQs maps, guide HTML, or extracted image assets.
 It never changes a ROM, patch, save, or running emulator.
 
-The decoder supports the supplied Japanese original, DeJap v2.01F, and DeJap
-v2.01F Alt. Other builds fail closed by cartridge identity. A BPS patch is
-checksum-verified and applied only in memory; alternatively, supply the already
-patched ROM without `--patch`. A 512-byte copier header is removed in memory.
+Playable runtime and acceptance targets are DeJap v2.01F and DeJap v2.01F Alt.
+Other playable builds fail closed by cartridge identity. The supplied Japanese
+original remains an offline patch source/research reference, not a runtime target.
+A BPS patch is checksum-verified and applied only in memory; normal use supplies
+the already translated ROM without `--patch`. A copier header is removed in memory.
 
 ## Setup
 
@@ -19,8 +20,7 @@ existing RetroArchOverlay environment:
 $python = "..\..\.venv\Scripts\python.exe"
 & $python -B -m pip install -r .\scripts\requirements.txt
 $resources = ".\Resources\2148-DragonQuest5-English"
-$rom = Join-Path $resources "Dragon Quest V - Tenkuu no Hanayome (Japan).sfc"
-$patch = Join-Path $resources "Dragon Quest V - Tenkuu no Hanayome (Japan) (En) (v2.01F) (DeJap).bps"
+$rom = Join-Path $resources "Dragon Quest V - Tenkuu no Hanayome (Japan) (En) (v2.01F) (DeJap).sfc"
 ```
 
 The CPU dependency is pinned to a tested upstream revision. Capstone and a
@@ -32,16 +32,16 @@ List native area/floor IDs and dimensions, then export every cataloged floor
 and all three native world variants:
 
 ```powershell
-& $python -B .\scripts\dq5_maps.py --rom $rom --patch $patch --list
-& $python -B .\scripts\dq5_maps.py --rom $rom --patch $patch --all --time-budget 600
+& $python -B .\scripts\dq5_maps.py --rom $rom --list
+& $python -B .\scripts\dq5_maps.py --rom $rom --all --time-budget 600
 ```
 
 Export one floor, one full world, or a world crop:
 
 ```powershell
-& $python -B .\scripts\dq5_maps.py --rom $rom --patch $patch --area 05 --floor 00
-& $python -B .\scripts\dq5_maps.py --rom $rom --patch $patch --world 0
-& $python -B .\scripts\dq5_maps.py --rom $rom --patch $patch --world 0 --region 32,32,64,64
+& $python -B .\scripts\dq5_maps.py --rom $rom --area 05 --floor 00
+& $python -B .\scripts\dq5_maps.py --rom $rom --world 0
+& $python -B .\scripts\dq5_maps.py --rom $rom --world 0 --region 32,32,64,64
 ```
 
 Area and floor IDs are hexadecimal. Special areas/floors use native IDs starting
@@ -89,8 +89,9 @@ these added rings.
 
 Reward records retain the raw reward word, table address, ordinal, context byte,
 absolute WRAM flag address, and MSB-first flag mask. Native item IDs, gold,
-traps, empty outcomes, and event codes remain distinct. Item labels are stable
-IDs such as `Item $27`; a patched-English item-name decoder is not included.
+traps, empty outcomes, and event codes remain distinct. Translated-ROM exports
+use the actual DeJap item-name strings while retaining stable native item IDs.
+Offline original-ROM reference exports retain raw item labels.
 
 ## Native Implementation
 
@@ -101,6 +102,9 @@ IDs such as `Item $27`; a patched-English item-name decoder is not included.
 - [dq5_world.py](dq5_world.py): terminated world RLE, packed bitplane, coordinate lookup, and tile attributes.
 - [dq5_render.py](dq5_render.py): SNES four-bit tile planes, background palettes, flips, layers, and optional marker copies.
 - [dq5_treasures.py](dq5_treasures.py): chest ordinals and searchable, container/hidden, and story pickup lists.
+- [dq5_names.py](dq5_names.py): verified DeJap names shared by exports and runtime.
+- [dq5_sprites.py](dq5_sprites.py): bounded native actor-pose decoding and OBJ rendering.
+- [dq5_core.py](dq5_core.py): isolated complete Snes9x state/native-access validation.
 
 Ordinary floor directories are selected through `$0F:8ED7`; special directories
 through `$1F:CEB6`. Native floor/resource calls include `$01:9903`, `$01:92D9`,
