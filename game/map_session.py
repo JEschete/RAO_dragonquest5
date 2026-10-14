@@ -1,14 +1,19 @@
 from __future__ import annotations
 
 from concurrent.futures import Future, ThreadPoolExecutor
-from dataclasses import dataclass, replace
+from dataclasses import asdict, dataclass, replace
 import hashlib
+import json
+import os
 from pathlib import Path
+import tempfile
 from threading import Event, RLock
 from time import monotonic
 
-from retroarch_overlay.models import MapDocument, MapLayer, MapOverlay, MapPosition, PanelAction, PanelRow, PanelSection
+from retroarch_overlay.models import (MapDocument, MapLayer, MapOverlay, MapPosition, MapRegion, MapWaypoint,
+                                      PanelAction, PanelRow, PanelSection)
 
+from ..scripts.dq5_treasures import TreasureLocation
 from .atlas import FloorAssets, NativeAtlas, floor_key, map_state_key, stable_cells
 from .doors import door_catalog, door_overlay, read_keys
 from .entities import entity_overlay, read_entities
@@ -16,6 +21,7 @@ from .hazards import HazardPatch, hazard_overlay, world_hazards
 from .location import Location, read_location
 from .navigation import floor_exits, movement_features, world_entrances
 from .places import floor_title, world_title
+from ..scripts.dq5_treasures import medal_pickup_flags
 
 
 OVERLAY_KINDS = ("collectibles", "conditional", "event", "trap", "empty", "npcs", "vehicles", "exits",
@@ -24,6 +30,37 @@ OVERLAY_KINDS = ("collectibles", "conditional", "event", "trap", "empty", "npcs"
 FULL_VIEW, GROUND_VIEW, UPPER_VIEW = "Full", "Ground", "Upper"
 # A floor whose palette keeps changing is animating it; stop redrawing after this many changes per visit.
 PALETTE_CHANGES_FOLLOWED = 3
+CATALOGUE_CACHE_VERSION = 1
+
+
+def _layer_to_data(layer: MapLayer) -> dict:
+    data = asdict(layer)
+    data["image_path"] = str(layer.image_path)
+    data["waypoints"] = [{**asdict(point),
+                          "image_path": str(point.image_path) if point.image_path is not None else None}
+                         for point in layer.waypoints]
+    data["regions"] = [asdict(region) for region in layer.regions]
+    data["image_variants"] = [_layer_to_data(variant) for variant in layer.image_variants]
+    data["image_loader"] = None
+    return data
+
+
+def _layer_from_data(data: dict) -> MapLayer:
+    values = dict(data)
+    values["image_path"] = Path(values["image_path"])
+    values["waypoints"] = tuple(
+        MapWaypoint(**{**point, "image_path": Path(point["image_path"]) if point.get("image_path") else None})
+        for point in values["waypoints"]
+    )
+    values["regions"] = tuple(MapRegion(**region) for region in values["regions"])
+    values["image_variants"] = tuple(_layer_from_data(variant) for variant in values["image_variants"])
+    values["image_loader"] = None
+    return MapLayer(**values)
+
+
+def _layer_images_exist(layer: MapLayer) -> bool:
+    return (layer.image_path.is_file() and layer.image_path.stat().st_size > 0
+            and all(_layer_images_exist(variant) for variant in layer.image_variants))
 
 
 @dataclass(frozen=True, slots=True)
@@ -56,6 +93,7 @@ class MapSession:
         self._cancel.set()
         if self._executor is not None:
             self._executor.shutdown(wait=False, cancel_futures=True)
+        self.atlas.close()
         self._executor = None
         self._catalogue = None
         self._current = None
@@ -76,26 +114,40 @@ class MapSession:
 
     def treasures(self, snapshot: bytes) -> PanelSection:
         with self._lock:
-            templates = tuple(self._pickups.values())
-            ready = frozenset(self._ready)
-            complete = len(self._ready) == self._total
-        rows = []
+            current = self._pickups.get(floor_key(snapshot[0xBC], snapshot[0xBD])) if snapshot[0xBE] & 0x80 else None
+            current_ready = bool(snapshot[0xBE] & 0x80) and floor_key(snapshot[0xBC], snapshot[0xBD]) in self._ready
+        flags = medal_pickup_flags(self.atlas.rom)
+        collected = sum(bool(snapshot[address - 0x7E0000] & mask) for address, mask in flags)
+        rows = [PanelRow(f"Medal pickups {collected}/{len(flags)}", detail="Collected pickup flags, independent of medals carried or banked")]
         actions = []
-        for header, rewards in templates:
-            overlay = self.atlas.pickup_overlay(header, rewards, snapshot)
-            place = floor_title(self.atlas.names, header.area_id, header.floor_id)
-            for point in overlay.waypoints:
-                row = PanelRow(point.title, detail=f"{place} ({point.x},{point.y}) | {point.detail}",
-                               emphasis="muted" if point.completed or point.kind == "conditional" else "")
-                rows.append(row)
-                if overlay.layer_key in ready:
-                    actions.append(PanelAction(point.title, point.title, (row,),
-                                               key=f"treasure-{overlay.layer_key}-{point.x}-{point.y}-{point.title}",
-                                               map_layer_key=overlay.layer_key))
-        rows.sort(key=lambda row: (row.text.casefold(), row.detail))
-        title = "Treasures" if complete else "Treasures (Prepared Maps)"
-        return PanelSection(title, tuple(rows), actions=tuple(actions), role="area", key="treasures",
-                            priority=54, preview_limit=3)
+        if snapshot[0xBE] & 0x80:
+            if current is None:
+                rows.append(PanelRow("Nearby finds are preparing for this floor", emphasis="muted"))
+            else:
+                header, rewards = current
+                overlay = self.atlas.pickup_overlay(header, rewards, snapshot)
+                nearby = sorted(
+                    (point for point in overlay.waypoints if point.completed is not True
+                     and abs(point.x - snapshot[0xC1]) + abs(point.y - snapshot[0xC2]) <= 10),
+                    key=lambda point: (abs(point.x - snapshot[0xC1]) + abs(point.y - snapshot[0xC2]),
+                                       point.title.casefold(), point.y, point.x),
+                )[:6]
+                place = floor_title(self.atlas.names, header.area_id, header.floor_id)
+                for point in nearby:
+                    distance = abs(point.x - snapshot[0xC1]) + abs(point.y - snapshot[0xC2])
+                    row = PanelRow(point.title, detail=f"{place} ({point.x},{point.y}) | {distance} tiles away | {point.detail}",
+                                   emphasis="muted" if point.kind == "conditional" else "")
+                    rows.append(row)
+                    if current_ready:
+                        actions.append(PanelAction(point.title, point.title, (row,),
+                                                   key=f"treasure-{overlay.layer_key}-{point.x}-{point.y}-{point.title}",
+                                                   map_layer_key=overlay.layer_key))
+                if not nearby:
+                    rows.append(PanelRow("No uncollected finds within 10 tiles", emphasis="muted"))
+        else:
+            rows.append(PanelRow("Local finds are shown after entering a floor", emphasis="muted"))
+        return PanelSection("Nearby Finds", tuple(rows), actions=tuple(actions), role="area", key="treasures",
+                            priority=54, preview_limit=7)
 
     def _start(self, era: int) -> None:
         self.close()
@@ -108,7 +160,19 @@ class MapSession:
         self._executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="DQ5-atlas")
 
     def _build_catalogue(self, era: int, cancellation: Event) -> None:
+        cached = self._read_catalogue_cache(era)
+        if cached is not None:
+            layers, pickups, hazards = cached
+            with self._lock:
+                if cancellation.is_set():
+                    return
+                self._ready.update((layer.key, layer) for layer in layers)
+                self._pickups.update(pickups)
+                self._hazards.update(hazards)
+            return
         deadline = monotonic() + 600
+        cached_floors = []
+        cached_worlds = []
         for header in self.atlas.catalog:
             if cancellation.is_set():
                 return
@@ -122,6 +186,9 @@ class MapSession:
                 self._ready.setdefault(layer.key, layer)
                 self._pickups.setdefault(layer.key, (header, assets.treasures))
                 self._hazards.setdefault(layer.key, assets.hazards.patches)
+            cached_floors.append({"layer": _layer_to_data(layer),
+                                  "treasures": [asdict(reward) for reward in assets.treasures],
+                                  "hazards": [asdict(patch) for patch in assets.hazards.patches]})
         for world in range(3):
             if cancellation.is_set():
                 return
@@ -132,7 +199,63 @@ class MapSession:
                 if cancellation.is_set():
                     return
                 self._ready.setdefault(layer.key, layer)
-                self._hazards.setdefault(layer.key, world_hazards(self.atlas.rom, world).patches)
+                patches = world_hazards(self.atlas.rom, world).patches
+                self._hazards.setdefault(layer.key, patches)
+            cached_worlds.append({"layer": _layer_to_data(layer),
+                                  "hazards": [asdict(patch) for patch in patches]})
+        self._write_catalogue_cache(era, cached_floors, cached_worlds)
+
+    def _catalogue_cache_path(self, era: int) -> Path:
+        return self.atlas.directory / f"catalogue-v{CATALOGUE_CACHE_VERSION}-era{era}.json"
+
+    def _read_catalogue_cache(self, era: int):
+        path = self._catalogue_cache_path(era)
+        if not path.is_file():
+            return None
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+            if (data.get("version") != CATALOGUE_CACHE_VERSION or data.get("rom") != self.atlas.rom.md5
+                    or data.get("era") != era or len(data.get("floors", ())) != len(self.atlas.catalog)
+                    or len(data.get("worlds", ())) != 3):
+                return None
+            headers = {floor_key(header.area_id, header.floor_id): header for header in self.atlas.catalog}
+            layers, pickups, hazards = [], {}, {}
+            for entry in data["floors"]:
+                layer = _layer_from_data(entry["layer"])
+                header = headers.get(layer.key)
+                if header is None or not _layer_images_exist(layer):
+                    return None
+                rewards = tuple(TreasureLocation(**reward) for reward in entry["treasures"])
+                patches = tuple(HazardPatch(**patch) for patch in entry["hazards"])
+                layers.append(layer)
+                pickups[layer.key] = (header, rewards)
+                hazards[layer.key] = patches
+            for entry in data["worlds"]:
+                layer = _layer_from_data(entry["layer"])
+                if layer.key not in ("world-0", "world-1", "world-2") or not _layer_images_exist(layer):
+                    return None
+                layers.append(layer)
+                hazards[layer.key] = tuple(HazardPatch(**patch) for patch in entry["hazards"])
+            return tuple(layers), pickups, hazards
+        except (OSError, ValueError, TypeError, KeyError, json.JSONDecodeError):
+            return None
+
+    def _write_catalogue_cache(self, era: int, floors: list[dict], worlds: list[dict]) -> None:
+        path = self._catalogue_cache_path(era)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        data = {"version": CATALOGUE_CACHE_VERSION, "rom": self.atlas.rom.md5, "era": era,
+                "floors": floors, "worlds": worlds}
+        temporary = None
+        try:
+            with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", newline="\n", dir=path.parent,
+                                             prefix=f"{path.name}.", suffix=".tmp", delete=False) as stream:
+                temporary = Path(stream.name)
+                json.dump(data, stream, separators=(",", ":"))
+                stream.write("\n")
+            os.replace(temporary, path)
+        except OSError:
+            if temporary is not None:
+                temporary.unlink(missing_ok=True)
 
     def _floor_layer(self, assets: FloorAssets) -> MapLayer:
         header = assets.decoded.header

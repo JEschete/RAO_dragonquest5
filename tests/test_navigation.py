@@ -74,7 +74,7 @@ def test_exit_markers_name_destinations_and_levels(owned_rom, plugin_package: st
     names = importlib.import_module(f"{plugin_package}.game.names").NativeNames(owned_rom)
     church = module.floor_exits(owned_rom, maps.select_map(owned_rom, 0x1A, 1), names)
     assert [(point.x, point.y, point.title) for point in church] == [(10, 22, "Floor 00")]
-    assert church[0].detail == "Exit cells (10,22) to (10,22) | Arrives near (26,50)"
+    assert church[0].detail == "Exit cells (10,22) to (10,22) | Arrives at (26,50)"
     telepador = module.floor_exits(owned_rom, maps.select_map(owned_rom, 0, 0), names)
     stairs = next(point for point in telepador if (point.x, point.y) == (29, 34))
     assert "From level 3 to level 1" in stairs.detail
@@ -160,8 +160,8 @@ def test_floor_navigator_lists_doors_exits_and_return_points(owned_rom, plugin_p
     assert "Day" in texts and "Barrier on this map" in texts and texts[-1] == "Reinhart"
     assert [action.title for action in section.actions] == ["Floor 01", "Floor 02", "Floor 02", "Floor 03", "Floor 04"]
     church = section.actions[0]
-    assert church.map_layer_key == "floor-1A-01" and church.rows[0].text == "Arrives near (10,22)"
-    assert church.rows[0].detail == "Exit cells (26,50) to (26,50)"
+    assert church.map_layer_key == "floor-1A-01" and church.rows[0].text == "Arrives at (10,22)"
+    assert church.rows[0].detail == "Exit span (26,50) to (26,50) on level 1"
     ram[0x075E] = 0xF0
     night = module.navigation_section(owned_rom, maps.select_map(owned_rom, 0x1A, 0), names, bytes(ram))
     locked = next(row for row in night.rows if row.text == "Night-locked door at (6,57)")
@@ -169,7 +169,7 @@ def test_floor_navigator_lists_doors_exits_and_return_points(owned_rom, plugin_p
     pending = module.ready_navigation(section, frozenset(("floor-1A-01",)))
     assert [action.title for action in pending.actions] == ["Floor 01"]
     assert len(pending.rows) == len(section.rows) + 4
-    assert pending.rows[-1].emphasis == "muted" and "Arrives near" in pending.rows[-1].detail
+    assert pending.rows[-1].emphasis == "muted" and "Arrives at" in pending.rows[-1].detail
 
 
 def test_leaving_exit_action_links_the_native_destination(owned_rom, plugin_package: str) -> None:
@@ -194,16 +194,20 @@ def test_world_navigator_uses_native_names_and_arrivals(owned_rom, plugin_packag
     ram = bytearray(0x20000)
     ram[0x2030] = 1
     ram[0x21BD] = 2
+    ram[0xB6:0xBA] = (231).to_bytes(2, "little") + (117).to_bytes(2, "little")
     section = module.world_navigation_section(owned_rom, names, bytes(ram), 0)
     keys = {f"floor-{header.area_id:02X}-{header.floor_id:02X}" for header in maps.map_catalog(owned_rom)}
-    assert section.actions and all(action.map_layer_key in keys for action in section.actions)
+    assert section.actions and len(section.actions) <= 6
+    assert all(action.map_layer_key in keys for action in section.actions)
     titles = [action.title for action in section.actions]
-    assert "Alcapa" in titles and "Reinhart" in titles and "Area 04 (northwest of Alcapa)" in titles
+    titles.extend(row.text for row in section.rows if row.detail.startswith("Entrance at"))
+    assert "Alcapa" in titles and len({action.key for action in section.actions}) == len(section.actions)
     assert "Faerie Village" not in titles and "Shahanna" not in titles
-    assert titles.count("Granvania") == 1 and len({action.key for action in section.actions}) == len(section.actions)
+    assert all("tiles" in action.rows[0].detail or "here" in action.rows[0].detail
+               for action in section.actions)
     alcapa = next(action for action in section.actions if action.title == "Alcapa")
     assert alcapa.rows[0].text == "Entrance at (231,117)"
-    assert alcapa.rows[0].detail == "Arrives on Floor 00 at (37,73)"
+    assert alcapa.rows[0].detail == "Entrance is here | Arrives on Floor 00 at (37,73)"
     assert [row.text for row in section.rows] == ["Reinhart"]
     faerie = module.world_navigation_section(owned_rom, names, bytes(ram), 1)
     assert [action.title for action in faerie.actions].count("Faerie Village") == 1

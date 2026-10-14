@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib
+from dataclasses import replace
 
 
 def test_complete_named_catalogs_are_sorted_and_have_functional_details(owned_rom, plugin_package: str) -> None:
@@ -27,6 +28,24 @@ def test_complete_named_catalogs_are_sorted_and_have_functional_details(owned_ro
     section = catalogs.items_section()
     assert section.actions[0].rows is catalogs.item_rows
     assert section.actions[0].command is None
+
+
+def test_live_item_panel_only_shows_travelling_inventory_with_holders(owned_rom, plugin_package: str) -> None:
+    module = importlib.import_module(f"{plugin_package}.game.catalogs")
+    state = importlib.import_module(f"{plugin_package}.game.state")
+    names = importlib.import_module(f"{plugin_package}.game.names").NativeNames(owned_rom)
+    helpers = importlib.import_module("test_party")
+    party = state.read_party(bytes(helpers._snapshot()), names)
+    first = party.companions[0]
+    carried = (state.CarriedItem(0, names.get(5, 0), True), state.CarriedItem(12, names.get(5, 12), False))
+    party = replace(party, companions=(replace(first, inventory=carried), *party.companions[1:]))
+    section = module.Catalogs(owned_rom, names, "Jude").items_section(party)
+    rows = section.actions[0].rows
+    owned = {item.item_id for member in party.companions for item in member.inventory}
+    assert section.title == "Carried Items and Equipment"
+    assert len(rows) == len(owned) < 216
+    assert all(row.detail.startswith("Held by ") for row in rows)
+    assert all(any(member.name in row.detail for member in party.companions) for row in rows)
 
 
 def test_bestiary_deduplicates_actual_battle_context(owned_rom, plugin_package: str) -> None:

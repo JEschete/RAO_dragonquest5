@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib
 from concurrent.futures import Future
 from pathlib import Path
+from threading import Event
 
 import pytest
 
@@ -39,7 +40,9 @@ def test_native_map_session_prepares_off_gui_and_publishes_real_images(owned_rom
         assert not layer.waypoints
         assert len(result.overlays[0].waypoints) == 2
         treasure_section = session.treasures(bytes(ram))
-        assert treasure_section.key == "treasures" and len(treasure_section.rows) == 2
+        assert treasure_section.key == "treasures" and treasure_section.rows[0].text.startswith("Medal pickups ")
+        assert len(treasure_section.rows) <= 7
+        assert all("tiles away" in row.detail for row in treasure_section.rows[1:])
         assert all(action.map_layer_key == "floor-05-00" for action in treasure_section.actions)
         actor_points = result.overlays[-1].waypoints
         assert actor_points and all(point.image_path is not None and point.image_path.is_file()
@@ -48,6 +51,41 @@ def test_native_map_session_prepares_off_gui_and_publishes_real_images(owned_rom
         assert session.capture(bytes(ram)).progress is None
     finally:
         session.close()
+
+
+def test_prepared_catalogue_cache_skips_floor_and_world_decoding(owned_rom, plugin_package: str,
+                                                                 tmp_path: Path, monkeypatch) -> None:
+    assets = importlib.import_module(f"{plugin_package}.game.atlas")
+    labels = importlib.import_module(f"{plugin_package}.game.names")
+    sessions = importlib.import_module(f"{plugin_package}.game.map_session")
+    hazards = importlib.import_module(f"{plugin_package}.game.hazards")
+    atlas = assets.NativeAtlas(owned_rom, tmp_path, labels.NativeNames(owned_rom))
+    atlas.catalog = (atlas.header(5, 0),)
+    world_paths = tuple(tmp_path / name for name in ("world.png", "world-base.png", "world-upper.png"))
+    for path in world_paths:
+        path.write_bytes(b"cached image")
+    monkeypatch.setattr(atlas, "world_views", lambda world, era: world_paths)
+    monkeypatch.setattr(sessions, "world_hazards", lambda rom, world: hazards.HazardMap((), ()))
+    first = sessions.MapSession(atlas)
+    second = sessions.MapSession(atlas)
+    try:
+        first._build_catalogue(1, Event())
+        assert first._catalogue_cache_path(1).is_file()
+        first.close()
+
+        def unexpected_decode(*args, **kwargs):
+            raise AssertionError("A valid prepared-catalogue cache must skip native map decoding")
+
+        monkeypatch.setattr(atlas, "floor", unexpected_decode)
+        monkeypatch.setattr(atlas, "world_views", unexpected_decode)
+        monkeypatch.setattr(sessions, "world_hazards", unexpected_decode)
+        second._build_catalogue(1, Event())
+        assert set(second._ready) == {"floor-05-00", "world-0", "world-1", "world-2"}
+        assert set(second._pickups) == {"floor-05-00"}
+        assert set(second._hazards) == set(second._ready)
+    finally:
+        first.close()
+        second.close()
 
 
 def test_completed_map_is_published_before_queuing_a_new_palette(owned_rom, plugin_package: str,
@@ -162,6 +200,40 @@ def test_remote_hazard_markers_do_not_inherit_current_stepguard(owned_rom, plugi
         assert "Stepguard is protecting" in markers[local_key].detail
         assert markers[remote_key].marker == "hazard"
         assert "Stepguard" not in markers[remote_key].detail
+    finally:
+        session.close()
+
+
+def test_treasures_show_only_nearby_current_floor_finds_and_global_medal_count(owned_rom, plugin_package: str,
+                                                                               tmp_path: Path) -> None:
+    assets = importlib.import_module(f"{plugin_package}.game.atlas")
+    labels = importlib.import_module(f"{plugin_package}.game.names")
+    sessions = importlib.import_module(f"{plugin_package}.game.map_session")
+    rewards = importlib.import_module(f"{plugin_package}.scripts.dq5_treasures")
+    session = sessions.MapSession(assets.NativeAtlas(owned_rom, tmp_path, labels.NativeNames(owned_rom)))
+    current = session.atlas.header(5, 0)
+    remote = session.atlas.header(1, 5)
+    session._pickups = {
+        "floor-05-00": (current, (
+            rewards.TreasureLocation("chest", 5, 0, 7, 7, 0xB5, 0x7E2210, 0x80, 0x1EEE4E, 0),
+            rewards.TreasureLocation("chest", 5, 0, 13, 19, 0x01, 0x7E2210, 0x40, 0x1EEE50, 1),
+        )),
+        "floor-01-05": (remote, (
+            rewards.TreasureLocation("chest", 1, 5, 4, 4, 0x02, 0x7E2210, 0x20, 0x1EEE52, 2),
+        )),
+    }
+    session._ready = {"floor-05-00": object(), "floor-01-05": object()}
+    ram = bytearray(0x20000)
+    ram[0x1948] = 1
+    ram[0xBC:0xC3] = bytes((5, 0, 0x80, current.width, current.height, 6, 7))
+    ram[0x21C7:0x21C9] = bytes((5, 0))
+    try:
+        section = session.treasures(bytes(ram))
+        assert section.title == "Nearby Finds"
+        assert section.rows[0].text.startswith("Medal pickups 0/")
+        assert [row.text for row in section.rows[1:]] == ["Small Medal"]
+        assert "1 tiles away" in section.rows[1].detail
+        assert [action.title for action in section.actions] == ["Small Medal"]
     finally:
         session.close()
 

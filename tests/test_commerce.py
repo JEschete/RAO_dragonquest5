@@ -80,6 +80,24 @@ def test_equipment_comparison_uses_per_member_equipped_baseline(owned_rom, plugi
     assert rows[0].clear_upgrade and not rows[0].gains and not rows[0].losses
 
 
+def test_equipment_section_hides_self_comparisons_but_keeps_real_alternatives(owned_rom, plugin_package: str) -> None:
+    commerce = importlib.import_module(f"{plugin_package}.game.commerce")
+    state = importlib.import_module(f"{plugin_package}.game.state")
+    names, party = _party(plugin_package, owned_rom)
+    hero = next(member for member in party.companions if not member.monster and member.identifier == 0)
+    wearing = _wearing(plugin_package, names, hero, 0)
+    solo = replace(party, companions=(wearing,), deposited=())
+    assert commerce.equipment_section(owned_rom, names, solo) is None
+
+    alternative = state.CarriedItem(12, names.get(5, 12), False)
+    solo = replace(solo, companions=(replace(wearing, inventory=(*wearing.inventory, alternative)),))
+    section = commerce.equipment_section(owned_rom, names, solo)
+    assert [action.title for action in section.actions] == [names.get(5, 12)]
+    assert [row.text for row in section.actions[0].rows] == [hero.name]
+    assert f"ATK +{commerce.item_profile(owned_rom, 12).power - commerce.item_profile(owned_rom, 0).power} over {names.get(5, 0)}" \
+        in section.actions[0].rows[0].detail
+
+
 def test_item_properties_are_the_native_identify_sentences(owned_rom, plugin_package: str) -> None:
     module = importlib.import_module(f"{plugin_package}.game.items")
     assert module.item_properties(owned_rom, 0x11) == ("With this equipped, you can attack twice during battle.",)

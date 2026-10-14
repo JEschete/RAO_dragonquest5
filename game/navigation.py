@@ -212,7 +212,7 @@ def floor_exits(rom: RomImage, header: MapHeader, names: NativeNames | None = No
         else:
             try:
                 landing = landing_cell(select_map(rom, *target), record.data[8], record.data[9])
-                detail += f" | Arrives near ({landing[0]},{landing[1]})"
+                detail += f" | Arrives at ({landing[0]},{landing[1]})"
             except ValueError:
                 detail += " | Destination is not in the floor catalog"
         if record.level != 1 or record.data[11] not in (0, 1):
@@ -296,10 +296,11 @@ def navigation_section(rom: RomImage, header: MapHeader, names: NativeNames, sna
     digest = _state_digest(snapshot)
     for record in exit_catalog(rom).get((header.area_id, header.floor_id), ()):
         source_x, source_y = source_cell(record, snapshot[0xC1], snapshot[0xC2])
-        cells = (f"Exit cells ({record.data[0]},{record.data[1]}) to "
-                 f"({max(record.data[0], record.data[2] - 1)},{max(record.data[1], record.data[3] - 1)})")
+        cells = (f"Exit span ({record.data[0]},{record.data[1]}) to "
+                 f"({max(record.data[0], record.data[2] - 1)},{max(record.data[1], record.data[3] - 1)}) "
+                 f"on level {level_number(record.level)}")
         if record.level != snapshot[0xC3]:
-            cells += f" | Reached from level {level_number(record.level)}"
+            cells += f" | Requires level {level_number(record.level)}; current level {level_number(snapshot[0xC3])}"
         if record.target is None:
             destination = _cached(("leave", rom.md5, record.ordinal, source_x, source_y, digest),
                                   lambda: leave_destination(rom, snapshot, record, source_x, source_y))
@@ -318,12 +319,24 @@ def navigation_section(rom: RomImage, header: MapHeader, names: NativeNames, sna
             arrival_x, arrival_y = landing_cell(target, *arrival_position(rom, record, source_x, source_y))
             destination = Destination(target.area_id, target.floor_id, None, arrival_x, arrival_y, record.data[11])
             title = f"Floor {floor:02X}" if area == header.area_id else floor_title(names, area, floor)
-            arrival = f"Arrives near ({arrival_x},{arrival_y})"
+            arrival = f"Arrives at ({arrival_x},{arrival_y})"
         actions.append(PanelAction(title, title, (PanelRow(arrival, detail=cells),), key=f"exit-{record.ordinal}",
                                    map_layer_key=destination.layer_key))
     rows.extend(_return_rows(names, snapshot))
     return PanelSection("Navigator", tuple(rows), actions=tuple(actions), role="area",
                         key="navigation", priority=55, preview_limit=4)
+
+
+def _world_offset(source: int, target: int) -> int:
+    return (target - source + 256) % 512 - 256
+
+
+def _world_direction(dx: int, dy: int) -> str:
+    if not dx and not dy:
+        return "here"
+    vertical = "north" if dy < 0 else "south" if dy > 0 else ""
+    horizontal = "east" if dx > 0 else "west" if dx < 0 else ""
+    return f"{vertical}{horizontal}" if vertical and horizontal else vertical or horizontal
 
 
 def world_navigation_section(rom: RomImage, names: NativeNames, snapshot: bytes, world: int,
@@ -333,13 +346,19 @@ def world_navigation_section(rom: RomImage, names: NativeNames, snapshot: bytes,
     rows.extend(hazard_rows(hazards, snapshot))
     actions = []
     digest = _state_digest(snapshot)
+    player_x, player_y = int.from_bytes(snapshot[0xB6:0xB8], "little"), int.from_bytes(snapshot[0xB8:0xBA], "little")
     listed = set()
+    candidates = []
     for index, (area, xcoord, ycoord) in enumerate(world_entrance_records(rom)):
         if area_world(rom, area) != world or (area, xcoord, ycoord) in listed:
             continue
         listed.add((area, xcoord, ycoord))  # the native table repeats one tile
+        dx, dy = _world_offset(player_x, xcoord), _world_offset(player_y, ycoord)
+        candidates.append((abs(dx) + abs(dy), index, area, xcoord, ycoord, _world_direction(dx, dy)))
+    for distance, index, area, xcoord, ycoord, direction in sorted(candidates)[:6]:
         destination = _cached(("enter", rom.md5, area, xcoord, ycoord, digest),
                               lambda: enter_destination(rom, snapshot, area, xcoord, ycoord))
+        approach = "Entrance is here" if direction == "here" else f"{distance} tiles {direction}"
         if destination is None:
             rows.append(PanelRow(area_title(names, area), detail=f"Entrance at ({xcoord},{ycoord}) is closed right now",
                                  emphasis="muted"))
@@ -347,7 +366,7 @@ def world_navigation_section(rom: RomImage, names: NativeNames, snapshot: bytes,
         title = area_title(names, destination.area)
         actions.append(PanelAction(title, title,
                                    (PanelRow(f"Entrance at ({xcoord},{ycoord})",
-                                             detail=f"Arrives on Floor {destination.floor:02X} at "
+                                             detail=f"{approach} | Arrives on Floor {destination.floor:02X} at "
                                                     f"({destination.x},{destination.y})"),),
                                    key=f"world-entrance-{index}", map_layer_key=destination.layer_key))
     rows.extend(_return_rows(names, snapshot))

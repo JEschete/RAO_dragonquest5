@@ -33,6 +33,31 @@ def test_native_atlas_image_and_named_collection_markers(owned_rom, plugin_packa
     assert observed.waypoints[1].completed is False
 
 
+def test_static_floor_decoder_cache_survives_atlas_instances(owned_rom, plugin_package: str,
+                                                             tmp_path: Path, monkeypatch) -> None:
+    module = importlib.import_module(f"{plugin_package}.game.atlas")
+    labels = importlib.import_module(f"{plugin_package}.game.names")
+    first = module.NativeAtlas(owned_rom, tmp_path, labels.NativeNames(owned_rom))
+    original = first.floor(5, 0, 1)
+    cache_path = first._decoded_cache_path
+    first.close()
+    assert cache_path.is_file()
+
+    second = module.NativeAtlas(owned_rom, tmp_path, labels.NativeNames(owned_rom))
+
+    def unexpected_decode(*args, **kwargs):
+        raise AssertionError("A cached static floor must not execute the native decoder again")
+
+    monkeypatch.setattr(module, "decode_floor", unexpected_decode)
+    cached = second.floor(5, 0, 1)
+    assert cached.decoded.cells == original.decoded.cells
+    assert cached.decoded.vram == original.decoded.vram
+    assert cached.treasures == original.treasures
+    assert cached.hazards == original.hazards
+    assert cached.image == original.image
+    second.close()
+
+
 def test_corrupt_native_image_is_replaced_atomically(owned_rom, plugin_package: str, tmp_path: Path) -> None:
     module = importlib.import_module(f"{plugin_package}.game.atlas")
     labels = importlib.import_module(f"{plugin_package}.game.names")

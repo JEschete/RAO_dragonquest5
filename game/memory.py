@@ -2,19 +2,24 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
+import logging
 import socket
 
 from retroarch_overlay.core.contracts import MemoryReader
 
 
+LOGGER = logging.getLogger(__name__)
+
+
 REGIONS = ((0, 0x1000), (0x1000, 0x300), (0x1900, 0x200), (0x2000, 0xA40), (0x3000, 0x740))
-GUARDS = ((0xA0, 0x24), (0x1000, 0x20), (0x1944, 8), (0x201C, 12), (0x21C7, 2),
+GUARDS = ((0xA0, 0x0E), (0xAF, 0x0B), (0xBB, 0x09), (0x1000, 0x20), (0x1944, 8),
+          (0x201C, 12), (0x21C7, 2),
           (0x0AD6, 1), (0x0AEA, 1), (0x0F20, 8), (0x1A98, 8), (0x115A, 8),
           (0x1272, 1), (0x12C4, 16))
 
 
 class CoreRamReader:
-    CHUNK_SIZE = 256
+    CHUNK_SIZE = 4096
 
     def __init__(self, host: str, port: int, timeout: float) -> None:
         self.host = host
@@ -52,8 +57,8 @@ class CoreRamReader:
 
     def read_memory(self, address: int, size: int) -> bytes:
         relative = address - 0x7E0000
-        if relative < 0 or not 1 <= size <= 4096 or relative + size > 0x20000:
-            raise ValueError("SNES reads require 1-4096 bytes within $7E0000-$7FFFFF")
+        if relative < 0 or not 1 <= size <= 0x20000 or relative + size > 0x20000:
+            raise ValueError("SNES reads require 1-128 KiB within $7E0000-$7FFFFF")
         chunks = []
         for offset in range(0, size, self.CHUNK_SIZE):
             chunk_address = relative + offset
@@ -134,8 +139,11 @@ def capture(memory: MemoryReader, *, live_map: bool = False) -> MemorySnapshot:
             ram[0xC000 + offset:0xC000 + offset + length] = data
         regions.append((0xC000, size))
     for start, size in GUARDS:
-        if memory.read_memory(0x7E0000 + start, size) != ram[start:start + size]:
-            raise ValueError("DQ5 state changed while the snapshot was being read")
+        current = memory.read_memory(0x7E0000 + start, size)
+        if current != ram[start:start + size]:
+            changed = next(index for index, (before, after) in enumerate(zip(ram[start:start + size], current))
+                           if before != after)
+            raise ValueError(f"DQ5 state changed while the snapshot was being read at ${0x7E0000 + start + changed:06X}")
     if live_map and memory.read_memory(0x7E00BC, 5) != ram[0xBC:0xC1]:
         raise ValueError("Live native map identity/dimensions changed during capture")
     if live_map and int.from_bytes(ram[0x1944:0x1946], "little") == 0x8926:
@@ -152,7 +160,8 @@ def capture(memory: MemoryReader, *, live_map: bool = False) -> MemorySnapshot:
     return MemorySnapshot(bytes(ram), tuple(regions))
 
 
-def capture_with_retry(memory: MemoryReader, *, live_map: bool = False) -> MemorySnapshot:
+def capture_with_retry(memory: MemoryReader, *, live_map: bool = False,
+                       diagnostics: bool = False) -> MemorySnapshot:
     """Retry one whole read when frame advancement races the coherence guards."""
     transient = ("DQ5 state changed while", "Live native map identity/dimensions changed",
                  "Live native palette changed", "Native scene/map changed")
@@ -162,4 +171,6 @@ def capture_with_retry(memory: MemoryReader, *, live_map: bool = False) -> Memor
         except ValueError as error:
             if attempt or not str(error).startswith(transient):
                 raise
+            if diagnostics:
+                LOGGER.warning("DQ5 snapshot coherence retry: %s", error)
     raise AssertionError("Bounded snapshot retry completed without a result")

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from functools import cached_property
 
 from retroarch_overlay.models import PanelAction, PanelChip, PanelRow, PanelSection
@@ -49,27 +50,28 @@ class Catalogs:
 
     @cached_property
     def item_rows(self) -> tuple[PanelRow, ...]:
-        rows = []
-        for identity in range(ITEM_COUNT):
-            profile = item_profile(self.rom, identity)
-            use_command = battle_use_command(self.rom, identity)
-            use_detail = (f"\nBattle use: {self._action_label(use_command)}" if use_command is not None else "")
-            recovery = mp_recovery(self.rom, identity)
-            if recovery is not None:
-                minimum, maximum, break_denominator = recovery
-                use_detail += f"\nMP restoration {minimum}-{maximum}, capped at missing MP"
-                if break_denominator is not None:
-                    use_detail += f" | Break check 1/{break_denominator} after use"
-            flags = tuple(label for present, label in (
-                (profile.cursed, "Cursed"), (profile.consumable, "Consumable"),
-                (not profile.sellable, "Cannot sell"), (not profile.discardable, "Cannot discard"),
-            ) if present)
-            rows.append(PanelRow(self.names.get(ITEM_NAMES, identity),
-                                 detail=f"{profile.kind_name} | List price {profile.price:,} gold"
-                                        + (f"\nPower {profile.power}" if profile.kind != 4 else "") + use_detail,
-                                 chips=tuple(PanelChip(label, "#9B3945" if label == "Cursed" else "#526469")
-                                             for label in flags)))
-        return tuple(sorted(rows, key=lambda row: row.text.casefold()))
+        return tuple(sorted((self._item_row(identity) for identity in range(ITEM_COUNT)),
+                            key=lambda row: row.text.casefold()))
+
+    def _item_row(self, identity: int) -> PanelRow:
+        profile = item_profile(self.rom, identity)
+        use_command = battle_use_command(self.rom, identity)
+        use_detail = (f"\nBattle use: {self._action_label(use_command)}" if use_command is not None else "")
+        recovery = mp_recovery(self.rom, identity)
+        if recovery is not None:
+            minimum, maximum, break_denominator = recovery
+            use_detail += f"\nMP restoration {minimum}-{maximum}, capped at missing MP"
+            if break_denominator is not None:
+                use_detail += f" | Break check 1/{break_denominator} after use"
+        flags = tuple(label for present, label in (
+            (profile.cursed, "Cursed"), (profile.consumable, "Consumable"),
+            (not profile.sellable, "Cannot sell"), (not profile.discardable, "Cannot discard"),
+        ) if present)
+        return PanelRow(self.names.get(ITEM_NAMES, identity),
+                        detail=f"{profile.kind_name} | List price {profile.price:,} gold"
+                               + (f"\nPower {profile.power}" if profile.kind != 4 else "") + use_detail,
+                        chips=tuple(PanelChip(label, "#9B3945" if label == "Cursed" else "#526469")
+                                    for label in flags))
 
     def bestiary_section(self, battle: Battle) -> PanelSection:
         current = tuple(self._monster_row(profile) for profile in {
@@ -80,8 +82,23 @@ class Catalogs:
                                                  key="bestiary-catalog"),),
                             role="area", key="bestiary", priority=65, preview_limit=3)
 
-    def items_section(self) -> PanelSection:
-        return PanelSection("Items and Equipment", (),
-                            actions=(PanelAction("Items and Equipment", "Items and Equipment", self.item_rows,
+    def items_section(self, party=None) -> PanelSection:
+        if party is None:
+            title, rows = "Items and Equipment", self.item_rows
+        else:
+            holders: dict[int, list[str]] = {}
+            for member in party.companions:
+                for carried in member.inventory:
+                    status = "equipped" if carried.equipped else "carried"
+                    holders.setdefault(carried.item_id, []).append(f"{member.name} ({status})")
+            title = "Carried Items and Equipment"
+            rows = tuple(replace(self._item_row(identity),
+                                 detail=f"Held by {', '.join(names)}\n{self._item_row(identity).detail}")
+                         for identity, names in sorted(holders.items(),
+                                                       key=lambda row: self.names.get(ITEM_NAMES, row[0]).casefold()))
+            if not rows:
+                rows = (PanelRow("No items carried by the travelling party", emphasis="muted"),)
+        return PanelSection(title, (),
+                            actions=(PanelAction(title, title, rows,
                                                  key="item-catalog"),),
                             role="area", key="item-catalog", priority=70, preview_limit=0)

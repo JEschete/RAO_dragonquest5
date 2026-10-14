@@ -27,6 +27,9 @@ def test_capture_is_bounded_and_tracks_actual_regions(plugin_package: str) -> No
     assert len(reader.calls) == len(module.REGIONS) + len(module.GUARDS)
     assert snapshot.has_range(0x2040, 42)
     assert not snapshot.has_range(0xC000, 8)
+    assert not any(start <= 0xBA < start + size for start, size in module.GUARDS)
+    assert any(start <= 0xB9 < start + size for start, size in module.GUARDS)
+    assert any(start <= 0xBB < start + size for start, size in module.GUARDS)
 
 
 def test_capture_with_retry_recovers_once_from_a_coherence_race(plugin_package: str,
@@ -59,6 +62,31 @@ def test_capture_with_retry_does_not_hide_persistent_or_unrelated_failures(plugi
     with pytest.raises(ValueError, match="invalid native floor dimensions"):
         module.capture_with_retry(Reader())
     assert len(attempts) == 1
+
+
+def test_capture_with_retry_logs_coherence_races_only_when_enabled(plugin_package: str,
+                                                                    monkeypatch: pytest.MonkeyPatch,
+                                                                    caplog: pytest.LogCaptureFixture) -> None:
+    import logging
+
+    module = importlib.import_module(f"{plugin_package}.game.memory")
+    capture = module.capture
+    attempts = []
+
+    def once_unstable(memory, *, live_map: bool = False):
+        attempts.append(None)
+        if len(attempts) == 1:
+            raise ValueError("DQ5 state changed while the snapshot was being read at $7E:00BA")
+        return capture(memory, live_map=live_map)
+
+    monkeypatch.setattr(module, "capture", once_unstable)
+    with caplog.at_level(logging.WARNING, logger=module.__name__):
+        module.capture_with_retry(Reader(), diagnostics=False)
+        assert not caplog.records
+        attempts.clear()
+        module.capture_with_retry(Reader(), diagnostics=True)
+    assert len(attempts) == 2
+    assert len(caplog.records) == 1 and "$7E:00BA" in caplog.records[0].message
 
 
 @pytest.mark.parametrize("options", [{"truncated": True}, {"changing": True}])
@@ -122,7 +150,7 @@ def test_adaptive_reader_does_not_hide_unrelated_transport_errors(plugin_package
         adaptive.read_memory(0x7E2040, 42)
 
 
-def test_core_ram_reader_maps_wram_and_uses_256_byte_chunks(plugin_package: str, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_core_ram_reader_maps_wram_and_uses_bounded_large_chunks(plugin_package: str, monkeypatch: pytest.MonkeyPatch) -> None:
     module = importlib.import_module(f"{plugin_package}.game.memory")
     reader = module.CoreRamReader("127.0.0.1", 55356, 0.4)
     commands = []
@@ -133,8 +161,8 @@ def test_core_ram_reader_maps_wram_and_uses_256_byte_chunks(plugin_package: str,
         return f"{verb} {address.upper()} " + " ".join("5A" for _ in range(int(size)))
 
     monkeypatch.setattr(reader, "_request", response)
-    assert reader.read_memory(0x7F0100, 300) == bytes((0x5A,)) * 300
-    assert commands == ["READ_CORE_RAM 10100 256", "READ_CORE_RAM 10200 44"]
+    assert reader.read_memory(0x7E0100, 9000) == bytes((0x5A,)) * 9000
+    assert commands == ["READ_CORE_RAM 100 4096", "READ_CORE_RAM 1100 4096", "READ_CORE_RAM 2100 808"]
 
 
 @pytest.mark.parametrize("response", [

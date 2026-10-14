@@ -66,8 +66,8 @@ def _comparison_row(comparison: EquipmentComparison, names: NativeNames, note: s
                     emphasis="success" if comparison.clear_upgrade else "warning" if comparison.effect_tradeoff else "")
 
 
-def equipment_section(rom: RomImage, names: NativeNames, party: PartyState) -> PanelSection:
-    members = (*party.companions, *party.deposited)
+def equipment_section(rom: RomImage, names: NativeNames, party: PartyState) -> PanelSection | None:
+    members = party.companions
     carried = sorted({item.item_id for member in members for item in member.inventory},
                      key=lambda identity: names.get(ITEM_NAMES, identity).casefold())
     actions = []
@@ -76,10 +76,16 @@ def equipment_section(rom: RomImage, names: NativeNames, party: PartyState) -> P
         if profile.kind == 4:
             continue
         comparisons = compare_equipment(rom, identity, members)
-        rows = tuple(_comparison_row(comparison, names) for comparison in comparisons)
+        useful = tuple(comparison for comparison in comparisons
+                       if (comparison.equipped is None or comparison.equipped.item_id != identity)
+                       and (comparison.power_delta != 0 or comparison.gains or comparison.losses
+                            or comparison.use_before != comparison.use_after or comparison.candidate.cursed))
+        rows = tuple(_comparison_row(comparison, names) for comparison in useful)
         if rows:
             actions.append(PanelAction(names.get(ITEM_NAMES, identity), names.get(ITEM_NAMES, identity), rows,
                                        key=f"equipment-{identity}"))
+    if not actions:
+        return None
     return PanelSection("Equipment", (), actions=tuple(actions), role="party", key="equipment", priority=35,
                         preview_limit=0)
 

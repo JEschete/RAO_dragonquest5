@@ -3,8 +3,10 @@ from __future__ import annotations
 from collections import OrderedDict
 from dataclasses import dataclass, replace
 import hashlib
+import sqlite3
 from pathlib import Path
 from threading import RLock
+import zlib
 
 from PIL import Image
 
@@ -71,12 +73,53 @@ class NativeAtlas:
         self.names = names
         self.catalog = map_catalog(rom)
         self.directory = directory / "native-atlas" / f"v{ATLAS_VERSION}-{rom.md5}"
+        self._decoded_cache_path = self.directory / "decoded-v1.sqlite3"
+        self._decoded_cache: sqlite3.Connection | None = None
         self._cache: OrderedDict[tuple[int, int, int, str], FloorAssets] = OrderedDict()
         self._sprites: OrderedDict[tuple[int, int, int], DecodedSprite] = OrderedDict()
         self._lock = RLock()
 
     def header(self, area: int, floor: int) -> MapHeader:
         return select_map(self.rom, area, floor)
+
+    def close(self) -> None:
+        with self._lock:
+            if self._decoded_cache is not None:
+                self._decoded_cache.close()
+                self._decoded_cache = None
+
+    def _decode_static_floor(self, header: MapHeader, era: int) -> DecodedFloor:
+        if self._decoded_cache is None:
+            self.directory.mkdir(parents=True, exist_ok=True)
+            self._decoded_cache = sqlite3.connect(self._decoded_cache_path, timeout=10, check_same_thread=False)
+            self._decoded_cache.execute(
+                "CREATE TABLE IF NOT EXISTS floors (area INTEGER, floor INTEGER, era INTEGER, data BLOB, "
+                "PRIMARY KEY (area, floor, era))"
+            )
+        connection = self._decoded_cache
+        row = connection.execute("SELECT data FROM floors WHERE area=? AND floor=? AND era=?",
+                                 (header.area_id, header.floor_id, era)).fetchone()
+        expected = 0x20000 + 0x10000 + 512 + 4
+        if row is not None:
+            try:
+                data = zlib.decompress(row[0])
+            except zlib.error:
+                data = b""
+            if len(data) == expected:
+                ram_end = 0x20000
+                vram_end = ram_end + 0x10000
+                palette_end = vram_end + 512
+                return DecodedFloor(header, data[:ram_end], data[ram_end:vram_end],
+                                    data[vram_end:palette_end], int.from_bytes(data[palette_end:], "little"))
+            connection.execute("DELETE FROM floors WHERE area=? AND floor=? AND era=?",
+                               (header.area_id, header.floor_id, era))
+        decoded = decode_floor(self.rom, header.area_id, header.floor_id, era=era, timeout=20)
+        data = (decoded.ram + decoded.vram + decoded.palette
+                + decoded.instructions.to_bytes(4, "little", signed=False))
+        connection.execute("INSERT OR REPLACE INTO floors VALUES (?, ?, ?, ?)",
+                           (header.area_id, header.floor_id, era, zlib.compress(data, level=1)))
+        connection.commit()
+        return decoded
 
     def floor(self, area: int, floor: int, era: int,
               snapshot: bytes | None = None, live_cells: bytes | None = None,
@@ -94,7 +137,9 @@ class NativeAtlas:
             if cached is not None:
                 self._cache.move_to_end(identity)
                 return cached
-            decoded = decode_floor(self.rom, area, floor, era=era, ram_snapshot=snapshot, timeout=20)
+            decoded = (self._decode_static_floor(select_map(self.rom, area, floor), era)
+                       if snapshot is None and live_cells is None and live_palette is None
+                       else decode_floor(self.rom, area, floor, era=era, ram_snapshot=snapshot, timeout=20))
             treasures = treasures_for_floor(self.rom, decoded)
             if live_cells is not None:
                 if len(live_cells) != decoded.header.width * decoded.header.height * 8:

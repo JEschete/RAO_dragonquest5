@@ -139,15 +139,14 @@ def test_identity_waiting_states_and_first_field_snapshot(rig: Rig) -> None:
         lab.restore(rig.field)
         snapshot = settled(adapter, reader)
         sections = keyed(snapshot)
-        assert {"party-active", "balances", "equipment", "medals", "item-catalog", "treasures", "navigation"} <= set(sections)
+        assert {"party-active", "balances", "medals"} <= set(sections)
+        assert not {"equipment", "item-catalog", "treasures", "navigation"} & set(sections)
         assert snapshot.location == "Alcapa / Floor 01"
         assert "EshyJ" in sections["party-active"].rows[0].text and sections["party-active"].rows[0].meters[0].value == 68
         assert "Gold 155" in [row.text for row in sections["balances"].rows]
         assert (snapshot.map_position.x, snapshot.map_position.y) == (10, 10)
         layer = next(layer for layer in snapshot.map_document.layers if layer.key == "floor-1A-01")
         assert layer.title == "Alcapa / Floor 01" and layer.image_title == "Full" and layer.image_path.is_file()
-        # The save predates the Return spell; its destination bits are not yet meaningful.
-        assert not any("Return destination" in row.detail for row in sections["navigation"].rows)
         reader.connected = False
         dropped = adapter.snapshot(reader)
         assert list(keyed(dropped)) == ["waiting"] and dropped.map_document is None and dropped.map_position is None
@@ -187,8 +186,6 @@ def test_magic_key_door_follows_the_game_through_locked_openable_and_open(rig: R
         assert lab.ram[flag] & door.flag_mask
         opened = marker(settled(adapter, reader))
         assert opened.completed and opened.detail == "Open"
-        rows = {row.text: row.detail for row in keyed(settled(adapter, reader))["navigation"].rows}
-        assert rows["Magic Key"] == "Carried by EshyJ" and rows[f"Magic Key door at ({door.x},{door.y})"] == "Open"
         lab.restore(ready_state)
         rewound = marker(settled(adapter, reader))
         assert not rewound.completed and rewound.detail == "Can be opened now"
@@ -210,8 +207,9 @@ def test_barrier_costs_seven_hp_a_step_and_stepguard_covers_one_crossing(rig: Ri
         opened = lab.state()
         snapshot = settled(adapter, reader)
         assert snapshot.location == "Reinhart / Floor 05"
-        barrier = next(row for row in keyed(snapshot)["navigation"].rows if row.text == "Barrier on this map")
-        assert "7 HP per step" in barrier.detail and barrier.emphasis == "warning"
+            barrier = next(point for overlay in snapshot.map_overlays if overlay.layer_key == "floor-01-05"
+                           for point in overlay.waypoints if point.kind == "hazards" and point.title == "Barrier")
+            assert "7 HP per step" in barrier.detail and barrier.marker == "hazard"
         layer = next(layer for layer in snapshot.map_document.layers if layer.key == "floor-01-05")
         assert any(region.kind == "hazards" and region.title == "Barrier" for region in layer.regions)
         start = party_hp(lab.ram)
@@ -227,13 +225,15 @@ def test_barrier_costs_seven_hp_a_step_and_stepguard_covers_one_crossing(rig: Ri
         lab.restore(opened)
         lab.poke(0x194E, bytes((0x81,)))
         guarded = settled(adapter, reader)
-        assert "Stepguard is ready" in next(row for row in keyed(guarded)["navigation"].rows
-                                            if row.text == "Barrier on this map").detail
+        guard_marker = next(point for overlay in guarded.map_overlays for point in overlay.waypoints
+                    if point.kind == "hazards" and point.title == "Barrier")
+        assert "Stepguard is ready" in guard_marker.detail
         lab.walk("up", 6)
         assert party_hp(lab.ram) == start and lab.ram[0x194E] == 1
         protected = adapter.snapshot(reader)
-        assert "protecting the party" in next(row for row in keyed(protected)["navigation"].rows
-                                              if row.text == "Barrier on this map").detail
+        protected_marker = next(point for overlay in protected.map_overlays for point in overlay.waypoints
+                    if point.kind == "hazards" and point.title == "Barrier")
+        assert "protecting the party" in protected_marker.detail
         lab.walk("down", 8)
         assert lab.ram[0x194E] == 0
         lab.walk("up", 6)
@@ -270,9 +270,7 @@ def test_chest_pickup_is_tracked_and_reverses_with_an_earlier_state(rig: Rig) ->
         assert [names.get(5, item) for item in gained] == [closed.title]
         after = settled(adapter, reader)
         assert chest(after).completed is True and "Collected" in chest(after).detail
-        row = next(row for row in keyed(after)["treasures"].rows
-                   if row.text == closed.title and "Alcapa / Floor 00 (15,26)" in row.detail)
-        assert row.emphasis == "muted"
+        assert "treasures" not in keyed(after)
         lab.restore(earlier)
         rewound = settled(adapter, reader)
         assert chest(rewound).completed is False
@@ -327,10 +325,9 @@ def test_world_map_battle_and_return_to_the_field(rig: Rig) -> None:
         world = settled(adapter, reader)
         assert world.location == "World Map" and world.map_position.is_world
         assert (world.map_position.x, world.map_position.y) == (399, 379)      # the native leave destination
-        navigation = keyed(world)["navigation"]
-        entrances = [action.title for action in navigation.actions]
-        entrances.extend(row.text for row in navigation.rows if row.detail.startswith("Entrance at"))
-        assert "Alcapa" in entrances and entrances.count("Granvania") == 1
+        world_layer = next(layer for layer in world.map_document.layers if layer.key == "world-0")
+        entrances = {point.title for point in world_layer.waypoints if point.kind == "exits"}
+        assert {"Alcapa", "Granvania"} <= entrances
         lab.walk("down", 6)
         for step in range(900):
             lab.walk(("left", "right")[step // 6 % 2], 1)
@@ -347,15 +344,19 @@ def test_world_map_battle_and_return_to_the_field(rig: Rig) -> None:
         enemies = sections["party-active"].columns[1].rows
         assert enemies and all(row.meters and row.meters[0].maximum > 0 for row in enemies)
         assert {"battle-resistances", "combat-advice"} <= set(sections)
-        assert fight.map_document is None and not {"navigation", "treasures", "merchant"} & set(sections)
+        assert fight.map_document is not None and fight.map_position.is_world
+        assert not {"navigation", "treasures", "merchant", "equipment", "item-catalog"} & set(sections)
         for _ in range(400):
             lab.tap("a", wait=12)
             if mode(lab) == 0x8926:
                 break
         lab.run(120)
-        after = keyed(settled(adapter, reader))
-        assert mode(lab) == 0x8926 and "navigation" in after and not after["party-active"].columns
-        assert not {"battle-resistances", "combat-advice", "battle-commands"} & set(after)
+        returned = settled(adapter, reader)
+        after = keyed(returned)
+        assert mode(lab) == 0x8926 and returned.map_document is not None and not returned.map_position.is_world
+        assert not after["party-active"].columns
+        assert not {"battle-resistances", "combat-advice", "battle-commands", "navigation",
+                "treasures", "equipment", "item-catalog"} & set(after)
 
 
 @pytest.mark.parametrize("target", [None, (0x1A, 0, 26, 52), (1, 4, 32, 55), (0x21, 0, 30, 60), (0x53, 0x51, 10, 20)],

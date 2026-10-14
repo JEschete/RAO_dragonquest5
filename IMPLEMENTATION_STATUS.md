@@ -22,6 +22,10 @@ work. The approved requirements remain in
 Do not move to a new implementation slice while the current slice is unfinished
 without explicit user approval. Do not silently remove doors, hazards, or other
 retained requirements to satisfy this order.
+User-directed live-panel reduction (2026-10-13): do not publish Navigator,
+Nearby Finds, Equipment comparisons, or the carried-item catalog as dashboard
+sections. Retain the native map surface, party, balances/medals, services, and
+merchant panel; do not treat the suppressed sections as pending UI work.
 
 Not pending: casino/poker/slots/arena prediction/race helpers, bestiary,
 encounter-rate panels, recruitment/obedience panels, further NPC placement or
@@ -295,6 +299,11 @@ Implemented:
 - Pickup identity retained when collected chest graphics change.
 - Same-map completed renders publish before a newer request is queued, and
   failed old-map futures are discarded after a committed context change.
+- Static floor decoder buffers persist in a compressed, ROM/atlas-version-scoped
+	SQLite cache. A separate era/ROM/version-scoped JSON catalogue restores all
+	prepared layers, pickups, hazards, and world metadata without re-decoding the
+	full atlas on subsequent launches. Live snapshots/cells/palettes still bypass
+	the static decode cache.
 
 Missing implementation/acceptance:
 
@@ -315,9 +324,12 @@ Missing implementation/acceptance:
 	is palette-only, cell-reference-driven, or changes the graphic pattern.
 	Scope this to required background fidelity; do not resume dropped NPC
 	placement, pose, or sprite-animation research.
-6. **Refresh cost and cache growth.** Bound render scheduling and disk/memory
-	cache growth as live state changes. Avoid current-map starvation behind
-	bulk atlas rendering and repeated full-world work on irrelevant changes.
+6. **Refresh cost and cache growth.** The repeat-launch catalogue restore was
+	measured at 0.472 seconds for all 367 layers after the initial cache build.
+	Verify invalid/corrupt sidecars and missing images rebuild safely, and bound
+	cache cleanup across old atlas versions and all three eras. Avoid current-map
+	starvation behind first-run catalogue preparation and repeated work on
+	irrelevant live changes.
 7. **Transition/cancellation.** Verify old era/map renders cannot publish after
 	deactivation, reload, or transition, and that failed/cancelled preparation
 	recovers without losing unrelated prepared maps or duplicating markers.
@@ -382,6 +394,10 @@ restart dropped features or add a new objectives/guide/RA system.
 - 2026-10-13 hazard/map-session gate: 31 passed, including current-map-only
 	Stepguard markers. Private Snes9x Navigator checks pass for key-door
 	open/rewind, barrier damage/Stepguard, and world exit/battle/return.
+- 2026-10-13 atlas startup cache: all 35 atlas/map-session tests pass. First
+	metadata-cache creation took 2.55 seconds with decoded-floor buffers already
+	warm; the following production catalogue restore took 0.472 seconds. The
+	current era's decoded cache is 5.5 MB and its catalogue sidecar is 1.3 MB.
 - 2026-10-13 full live acceptance: 8 passed, 3 failed. Remaining failures are
 	the armor-shop route (no merchant section) and two rendered-frame comparisons
 	(Church sample count and Reinhart pixel alignment); these are later ordered
@@ -393,6 +409,11 @@ restart dropped features or add a new objectives/guide/RA system.
 	combatant records only while enemies remain; terminal battle scenes fall back
 	to party-native stats instead of stale combat workspace values. All 32 battle
 	tests and the focused live battle/return test pass.
+- 2026-10-13 dashboard reliability follow-up: transient invalid snapshots retain
+	the last coherent view; cached map documents stay attached through battles,
+	map preparation, and map errors. Live adapter omits the four user-suppressed
+	sections. Offline adapter/map-session/battle checks passed 66 tests; no
+	RetroArch session was started for this change.
 - The latest Navigator slice passed 22 checks; treasure outcome/medal/atlas
   passed 43; treasure interaction passed 41; casino removal/party/medals
   passed 16. These are overlapping runs, not additive test totals.

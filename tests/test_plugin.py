@@ -2,12 +2,16 @@ from __future__ import annotations
 
 import importlib
 import hashlib
+import logging
 import shutil
+from dataclasses import replace
 from pathlib import Path
 import tomllib
 import zlib
+from types import SimpleNamespace
 
 import pytest
+from retroarch_overlay.models import MapDocument, MapLayer, MapPosition
 
 from retroarch_overlay.core.contracts import GameContext
 from retroarch_overlay.infrastructure.plugin_loader import _load_plugin_module
@@ -17,12 +21,15 @@ from retroarch_overlay.models import RetroArchStatus
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def _adapter(ra_progress_provider=None):
+def _adapter(ra_progress_provider=None, *, diagnostics: bool = False):
     source = ROOT / "Resources/2148-DragonQuest5-English/Dragon Quest V - Tenkuu no Hanayome (Japan) (En) (v2.01F) (DeJap).sfc"
     if not source.is_file():
         pytest.skip("The locally owned patched DQ5 cartridge is not available")
     module = _load_plugin_module("org.jeschete.retroarch-overlay.dragonquest5", ROOT, Path("plugin.py"))
-    return module.PLUGIN.create(GameContext(settings={"rom_path": source}, repository_root=ROOT,
+    settings = {"rom_path": source}
+    if diagnostics:
+        settings["diagnostics"] = True
+    return module.PLUGIN.create(GameContext(settings=settings, repository_root=ROOT,
                                            ra_progress_provider=ra_progress_provider))
 
 
@@ -92,7 +99,9 @@ def test_clean_authored_checkout_loads_without_local_research_or_generated_asset
         adapter.activate(("super_nes", "Dragon Quest V", f"{zlib.crc32(adapter.rom.data):08x}"))
         snapshot = adapter.snapshot(Reader())
         assert any(section.key == "party-active" for section in snapshot.sections)
-        assert any(section.key == "item-catalog" for section in snapshot.sections)
+        assert not {"navigation", "treasures", "equipment", "item-catalog"} & {
+            section.key for section in snapshot.sections
+        }
         assert not any(section.key in ("bestiary", "encounters", "recruitment") for section in snapshot.sections)
         assert adapter.names.get(5, 0) == "Cypress Stick"
     finally:
@@ -116,7 +125,7 @@ def test_party_panel_is_live_and_declined_features_have_no_controls(plugin_packa
     adapter.activate(("Snes9x", "Dragon Quest V", f"{zlib.crc32(adapter.rom.data):08x}"))
     snapshot = adapter.snapshot(Reader())
     assert [section.key for section in snapshot.sections] == [
-        "party-active", "party-wagon", "balances", "equipment", "medals", "item-catalog",
+        "party-active", "party-wagon", "balances", "medals",
     ]
     active = snapshot.sections[0]
     assert "Jude" in active.rows[1].text
@@ -127,6 +136,136 @@ def test_party_panel_is_live_and_declined_features_have_no_controls(plugin_packa
     assert all(not any(word in section.key for word in ("casino", "arena")) for section in snapshot.sections)
     adapter.deactivate()
     assert adapter.snapshot(Reader()).sections[0].key == "waiting"
+
+
+def test_diagnostic_snapshot_logs_are_opt_in_and_rate_limited(caplog) -> None:
+    helpers = importlib.import_module("test_party")
+    ram = bytes(helpers._snapshot())
+
+    class Reader:
+        def read_memory(self, address: int, size: int) -> bytes:
+            start = address - 0x7E0000
+            return ram[start:start + size]
+
+    adapter = _adapter(diagnostics=True)
+    adapter.activate(("super_nes", "Dragon Quest V", f"{zlib.crc32(adapter.rom.data):08x}"))
+    try:
+        with caplog.at_level(logging.INFO):
+            first = adapter.snapshot(Reader())
+            adapter.snapshot(Reader())
+        messages = [record.getMessage() for record in caplog.records
+                    if record.getMessage().startswith("DQ5 diagnostic snapshot phase=")]
+        assert any(section.key == "party-active" for section in first.sections)
+        assert len(messages) == 1 and "elapsed=" in messages[0]
+    finally:
+        adapter.deactivate()
+
+    caplog.clear()
+    adapter = _adapter()
+    adapter.activate(("super_nes", "Dragon Quest V", f"{zlib.crc32(adapter.rom.data):08x}"))
+    try:
+        with caplog.at_level(logging.INFO):
+            adapter.snapshot(Reader())
+        assert not any("DQ5 diagnostic snapshot" in record.getMessage() for record in caplog.records)
+    finally:
+        adapter.deactivate()
+
+
+def test_transient_invalid_snapshot_keeps_last_coherent_view(plugin_package: str) -> None:
+    adapter = _adapter()
+    helpers = importlib.import_module("test_party")
+    ram = bytes(helpers._snapshot())
+
+    class Reader:
+        invalid = False
+
+        def read_memory(self, address: int, size: int) -> bytes:
+            if self.invalid:
+                raise ValueError("DQ5 state changed while the snapshot was being read")
+            start = address - 0x7E0000
+            return ram[start:start + size]
+
+    reader = Reader()
+    adapter.activate(("super_nes", "Dragon Quest V", f"{zlib.crc32(adapter.rom.data):08x}"))
+    try:
+        stable = adapter.snapshot(reader)
+        assert any(section.key == "party-active" for section in stable.sections)
+        layer = MapLayer("world-0", "World Map", "world-0", Path("world.png"), map_id=0x10000, wraps=True)
+        stable = replace(
+            stable,
+            location="World Map",
+            map_document=MapDocument("Dragon Quest V", (layer,)),
+            map_position=MapPosition("world-0", 0x10000, 399, 379, True),
+        )
+        adapter._last_snapshot = stable
+        reader.invalid = True
+        retained = adapter.snapshot(reader)
+        assert retained is stable and retained.map_document is not None
+        assert retained.map_position.is_world
+    finally:
+        adapter.deactivate()
+
+
+def test_last_map_remains_available_during_battle_and_transition(plugin_package: str) -> None:
+    adapter = _adapter()
+    helpers = importlib.import_module("test_party")
+    combat = importlib.import_module("test_battle")._battle_ram()
+    ram = helpers._snapshot()
+    ram[0x1944:0x1946] = (0x8952).to_bytes(2, "little")
+    ram[0x1000:0x1020] = combat[0x1000:0x1020]
+    ram[0x7C0:0x7D0] = combat[0x7C0:0x7D0]
+
+    class Reader:
+        def read_memory(self, address: int, size: int) -> bytes:
+            start = address - 0x7E0000
+            return bytes(ram[start:start + size])
+
+    layer = MapLayer("world-0", "World Map", "world-0", Path("world.png"), map_id=0x10000, wraps=True)
+    document = MapDocument("Dragon Quest V", (layer,))
+    position = MapPosition("world-0", 0x10000, 399, 379, True)
+    adapter._last_map = ("World Map", document, position, ())
+    adapter.activate(("super_nes", "Dragon Quest V", f"{zlib.crc32(adapter.rom.data):08x}"))
+    adapter._last_map = ("World Map", document, position, ())
+    try:
+        snapshot = adapter.snapshot(Reader())
+        assert snapshot.map_document is document and snapshot.map_position == position
+    finally:
+        adapter.deactivate()
+
+
+def test_pending_world_transition_keeps_cached_map_identity(plugin_package: str) -> None:
+    adapter = _adapter()
+    helpers = importlib.import_module("test_party")
+    ram = helpers._snapshot()
+    ram[0x1949] = 1
+
+    class PendingMaps:
+        @staticmethod
+        def close():
+            pass
+
+        @staticmethod
+        def capture(snapshot, live_cells, live_palette):
+            return SimpleNamespace(document=None, position=None, overlays=(), progress=(1, 367))
+
+    layer = MapLayer("world-0", "World Map", "world-0", Path("world.png"), map_id=0x10000, wraps=True)
+    document = MapDocument("Dragon Quest V", (layer,))
+    position = MapPosition("world-0", 0x10000, 399, 379, True)
+
+    class Reader:
+        def read_memory(self, address: int, size: int) -> bytes:
+            start = address - 0x7E0000
+            return bytes(ram[start:start + size])
+
+    adapter._maps = PendingMaps()
+    adapter.activate(("super_nes", "Dragon Quest V", f"{zlib.crc32(adapter.rom.data):08x}"))
+    adapter._last_map = ("World Map", document, position, ())
+    try:
+        snapshot = adapter.snapshot(Reader())
+        assert snapshot.location == "World Map"
+        assert snapshot.map_document is document and snapshot.map_position == position
+    finally:
+        adapter.deactivate()
 
 
 def test_reloaded_rewound_and_disconnected_memory_never_reuses_party_rows(plugin_package: str) -> None:
