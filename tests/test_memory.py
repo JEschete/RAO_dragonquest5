@@ -24,12 +24,44 @@ def test_capture_is_bounded_and_tracks_actual_regions(plugin_package: str) -> No
     snapshot = module.capture(reader)
     assert len(snapshot.ram) == 0x20000
     assert max(size for address, size in reader.calls) <= 4096
-    assert len(reader.calls) == len(module.REGIONS) + len(module.GUARDS)
+    assert len(reader.calls) == len(module.REGIONS) + len(module.GUARDS) + 1
     assert snapshot.has_range(0x2040, 42)
     assert not snapshot.has_range(0xC000, 8)
     assert not any(start <= 0xBA < start + size for start, size in module.GUARDS)
-    assert any(start <= 0xB9 < start + size for start, size in module.GUARDS)
+    assert not any(start <= 0xB9 < start + size for start, size in module.GUARDS)
     assert any(start <= 0xBB < start + size for start, size in module.GUARDS)
+
+
+@pytest.mark.parametrize("coordinates", [((0xB6, 10), (0xB8, 20)), ((0xC1, 6), (0xC2, 7), (0xC3, 2))])
+def test_walking_updates_position_without_rejecting_capture(plugin_package: str, coordinates) -> None:
+    module = importlib.import_module(f"{plugin_package}.game.memory")
+
+    class Walking(Reader):
+        def read_memory(self, address: int, size: int) -> bytes:
+            data = bytearray(super().read_memory(address, size))
+            if address == 0x7E00B6 and size == 14:
+                for offset, value in coordinates:
+                    data[offset - 0xB6] = value
+            return bytes(data)
+
+    result = module.capture(Walking())
+    assert all(result.ram[offset] == value for offset, value in coordinates)
+    assert not any(start <= offset < start + size for start, size in module.GUARDS
+                   for offset in (0xB6, 0xB7, 0xB8, 0xB9, 0xC1, 0xC2, 0xC3))
+
+
+def test_position_sample_rejects_map_identity_changes(plugin_package: str) -> None:
+    module = importlib.import_module(f"{plugin_package}.game.memory")
+
+    class Transition(Reader):
+        def read_memory(self, address: int, size: int) -> bytes:
+            data = bytearray(super().read_memory(address, size))
+            if address == 0x7E00B6 and size == 14:
+                data[6] = 1
+            return bytes(data)
+
+    with pytest.raises(ValueError, match="identity/dimensions changed"):
+        module.capture(Transition())
 
 
 def test_capture_with_retry_recovers_once_from_a_coherence_race(plugin_package: str,

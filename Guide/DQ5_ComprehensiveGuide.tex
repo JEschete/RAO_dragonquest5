@@ -19,7 +19,7 @@
 \usepackage{microtype}
 \usepackage[breakable,skins]{tcolorbox}
 \usepackage[automark]{scrlayer-scrpage}
-\usepackage[unicode,bookmarks=false,linktoc=none]{hyperref}
+\usepackage[unicode,bookmarks=false,linktoc=section]{hyperref}
 
 \definecolor{GuideGreen}{HTML}{244D3E}
 \definecolor{GuideGold}{HTML}{95722D}
@@ -122,23 +122,29 @@
 \DeclareTOCStyleEntry[indent=5.6em,numwidth=4.2em]{tocline}{subsection}
 \renewcommand{\contentsname}{Table of Contents}
 
+\makeatletter
 \newcommand{\PlanPart}[1]{%
   \refstepcounter{part}%
+  \edef\@currentHref{chapter.written.\number\numexpr\value{chapter}+1\relax}%
   \addcontentsline{toc}{part}{Part \Roman{part}: #1}%
 }
 \newcommand{\PlanChapter}[2]{%
   \refstepcounter{chapter}%
+  \edef\@currentHref{chapter.written.\arabic{chapter}}%
   \label{#1}%
   \addcontentsline{toc}{chapter}{\protect\numberline{\thechapter}#2}%
 }
 \newcommand{\PlanSection}[1]{%
   \refstepcounter{section}%
+  \edef\@currentHref{section.written.\arabic{chapter}.\arabic{section}}%
   \addcontentsline{toc}{section}{\protect\numberline{\thesection}#1}%
 }
 \newcommand{\PlanSubsection}[1]{%
   \refstepcounter{subsection}%
+  \edef\@currentHref{subsection.written.\arabic{chapter}.\arabic{section}.\arabic{subsection}}%
   \addcontentsline{toc}{subsection}{\protect\numberline{\thesubsection}#1}%
 }
+\makeatother
 
 \begin{document}
 \pagestyle{scrheadings}

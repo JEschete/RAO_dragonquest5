@@ -318,6 +318,36 @@ def test_world_map_is_rendered_once_whatever_the_live_palette_does(owned_rom, pl
         session.close()
 
 
+def test_ready_world_transition_does_not_queue_preparation(owned_rom, plugin_package: str, tmp_path: Path) -> None:
+    assets = importlib.import_module(f"{plugin_package}.game.atlas")
+    labels = importlib.import_module(f"{plugin_package}.game.names")
+    sessions = importlib.import_module(f"{plugin_package}.game.map_session")
+    models = importlib.import_module("retroarch_overlay.models")
+    session = sessions.MapSession(assets.NativeAtlas(owned_rom, tmp_path, labels.NativeNames(owned_rom)))
+
+    class Executor:
+        def submit(self, *args):
+            raise AssertionError("Ready world transitions must not queue image preparation")
+
+        def shutdown(self, **kwargs):
+            pass
+
+    session._executor = Executor()
+    session._era = 1
+    session._requested = ("floor-1A-00", 1, "previous")
+    session._ready["world-0"] = models.MapLayer("world-0", "World Map", "world-0", tmp_path / "world.png",
+                                             map_id=0x10000, wraps=True)
+    ram = bytearray(0x20000)
+    ram[0x1948] = 1
+    ram[0xB6:0xBA] = (231).to_bytes(2, "little") + (117).to_bytes(2, "little")
+    try:
+        result = session.capture(bytes(ram))
+        assert result.position.is_world and result.position.area == "world-0"
+        assert session._current is None
+    finally:
+        session.close()
+
+
 def test_state_specific_floor_images_are_pruned_to_a_small_history(owned_rom, plugin_package: str,
                                                                   tmp_path: Path) -> None:
     assets = importlib.import_module(f"{plugin_package}.game.atlas")

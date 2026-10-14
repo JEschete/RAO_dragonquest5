@@ -12,7 +12,7 @@ LOGGER = logging.getLogger(__name__)
 
 
 REGIONS = ((0, 0x1000), (0x1000, 0x300), (0x1900, 0x200), (0x2000, 0xA40), (0x3000, 0x740))
-GUARDS = ((0xA0, 0x0E), (0xAF, 0x0B), (0xBB, 0x09), (0x1000, 0x20), (0x1944, 8),
+GUARDS = ((0xA0, 0x0E), (0xAF, 0x07), (0xBB, 0x06), (0x1000, 0x20), (0x1944, 8),
           (0x201C, 12), (0x21C7, 2),
           (0x0AD6, 1), (0x0AEA, 1), (0x0F20, 8), (0x1A98, 8), (0x115A, 8),
           (0x1272, 1), (0x12C4, 16))
@@ -157,6 +157,13 @@ def capture(memory: MemoryReader, *, live_map: bool = False) -> MemorySnapshot:
                 or memory.read_memory(0x7E00BC, 5) != ram[0xBC:0xC1]):
             raise ValueError("Native scene/map changed during palette capture")
         regions.append((0x3914, 0x200))
+    position = memory.read_memory(0x7E00B6, 14)
+    if len(position) != 14:
+        raise ValueError("Incomplete native position sample")
+    if position[6:11] != ram[0xBC:0xC1]:
+        raise ValueError("Live native map identity/dimensions changed during position capture")
+    ram[0xB6:0xBA] = position[:4]
+    ram[0xC1:0xC4] = position[11:14]
     return MemorySnapshot(bytes(ram), tuple(regions))
 
 

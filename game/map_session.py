@@ -371,7 +371,10 @@ class MapSession:
             if self._requested is None or self._requested[:2] != identity[:2]:
                 self._entity_images = {}
             self._requested = identity
-            self._current = self._executor.submit(self._prepare_current, location, snapshot, live_cells, live_palette)
+            with self._lock:
+                ready_world = location.world is not None and location.key in self._ready
+            if not ready_world:
+                self._current = self._executor.submit(self._prepare_current, location, snapshot, live_cells, live_palette)
         if self._catalogue is not None and self._catalogue.done():
             self._catalogue.result()
         with self._lock:
