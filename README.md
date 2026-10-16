@@ -80,19 +80,21 @@ open. GameFAQs map assets are never used.
 
 ## Development
 
-From the plugin root, using the host environment:
+From the plugin root, prepare the shared host environment and all plugin
+development dependencies:
 
 ```powershell
+& .\scripts\setup_dev.ps1
 $python = "..\..\.venv\Scripts\python.exe"
-& $python -B -m pip install -r .\scripts\requirements.txt
 $source = (Resolve-Path ..\..\src).Path
 & $python -B -m pytest .\tests -q --rootdir . -o "pythonpath=$source" -p no:cacheprovider
 $scripts = (Resolve-Path .\scripts).Path
 & $python -B -m pytest .\scripts\tests -q --rootdir . -o "pythonpath=$scripts" -p no:cacheprovider
 ```
 
-Host development dependencies supply pytest, pytest-qt, and PySide6. Native
-ROM/patch tests skip explicitly when the owned inputs are absent. Offscreen
+The setup installs the host app in editable mode with its dev extras, plus the
+plugin's pinned native-decoder dependencies. Native ROM/patch tests skip
+explicitly when the owned inputs are absent. Offscreen
 Qt acceptance loads installed Windows text/symbol fonts when necessary;
 diagnostic screenshots remain under the ignored `native-maps/diagnostics`.
 Synthetic captures and private CPU execution are not live-emulator evidence.

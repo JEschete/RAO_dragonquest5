@@ -13,12 +13,12 @@ the already translated ROM without `--patch`. A copier header is removed in memo
 
 ## Setup
 
-Python 3.11 or newer and Git are required. From the plugin root, using the
-existing RetroArchOverlay environment:
+Python 3.11 or newer and Git are required. From the plugin root, prepare the
+shared host environment and install the decoder dependencies:
 
 ```powershell
+& .\scripts\setup_dev.ps1
 $python = "..\..\.venv\Scripts\python.exe"
-& $python -B -m pip install -r .\scripts\requirements.txt
 $resources = ".\Resources\2148-DragonQuest5-English"
 $rom = Join-Path $resources "Dragon Quest V - Tenkuu no Hanayome (Japan) (En) (v2.01F) (DeJap).sfc"
 ```
